@@ -273,20 +273,21 @@ lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct')) {
     table_subset <- table_sorted[abs(table_sorted$Error) > t_val,]
     ## If there are no abs errors that are larger than the threshold, return a statement saying so
     if(nrow(table_subset)==0){
-      statement <- paste("All absolute length errors are smaller than", t_val, "mm.")
+      statement <- paste("All absolute length errors are smaller than the specified threshold of", t_val, "mm.")
       
     } else{
-      statement <- paste(nrow(table_subset), "out of the", nrow(table), "absolute length errors are larger than", 
+      statement <- paste(nrow(table_subset), "out of the", nrow(table), "absolute length errors are larger than the specified 
+                         threshold of", 
                          t_val, "mm.")
     }
   } else { ## otherwise, we're reporting as a percentage..so do all the same things, except for absolute percentage
     table_sorted <- table %>% arrange(desc(abs(PctError)))
     table_subset <- table_sorted[abs(table_sorted$PctError) > t_val,]
     if(nrow(table_subset)==0){
-      statement <- paste("All length errors are smaller than", t_val, "% of the reference length.")
+      statement <- paste("All length errors are smaller than the specified threshold of", t_val, "% of the reference length.")
       
     } else{
-      statement <- paste(nrow(table_subset), "out of the", nrow(table), "length errors are larger than", 
+      statement <- paste(nrow(table_subset), "out of the", nrow(table), "length errors are larger than the specified threshold of", 
                          t_val, "% of the reference length.")
     }
   }

@@ -9,7 +9,7 @@
 ##             [                        ]
 ##             [                        ]
 ##
-##   (a seperate app or function will create this single file format from the four individual position files, 
+##   (a separate app or function will create this single file format from the four individual position files, 
 ##    if necessary)
 ##
 
@@ -173,7 +173,9 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                       ## 
                       ## DATA SUMMARY TAB - report # of Targets/Postions, and plots that check for bad targets
                       ##
-                      tabPanel("Data Summary", 
+                      tabPanel("Data Summary and Report", 
+                               h2("Download Report"),
+                               downloadButton("download_report", "Generate Report"),
                                h3("Data Summary"),
                                ## data summary statement for TLS data under test
                                textOutput("testdata_summary"), 
@@ -388,7 +390,7 @@ server <- function(input, output) {
     ## If a threshold was included, count how many absolute length errors are larger
     ## than the threshold, and report the values that were, if applicable
     if(input$includeThreshold=='No') {
-      results_out$lengtherrors_summary = NA
+      results_out$lengtherrors_summary = "No error threshold was provided."
       results_out$lengtherrors_table = NA
     } else{
       lengtherrors_exceed = lengthError_statement(table = A_F_LengthError_list$table, t_val = results_out$threshold, 
@@ -588,14 +590,28 @@ server <- function(input, output) {
   
   ##############################
   ## PART I - PLOT THE ERRORS
-  ##
-  output$errorPlot <- renderPlot({
+  ## updated to account for needing to do this in both webapp and report
+
+  # 1. Create the plot as a reactive object
+  error_plot_reactive <- reactive({
+    # Check if data exists
     if(is.null(all_results()$A_F_LengthError_table)) {
       return(NULL)
     }
-    partIerrorplot(dat = all_results()$A_F_LengthError_table, 
-                   threshold = all_results()$threshold, plot_as = all_results()$error_reporting)
+    
+    # Call your custom plotting function
+    partIerrorplot(
+      dat = all_results()$A_F_LengthError_table, 
+      threshold = all_results()$threshold, 
+      plot_as = all_results()$error_reporting
+    )
+  })
+  
+  # 2. Render the plot in the web app (later we will render it in the downloadable report format)
+  output$errorPlot <- renderPlot({
+    error_plot_reactive()
   }, res = 96)
+  
 
   
   #############################
@@ -735,7 +751,39 @@ server <- function(input, output) {
       HTML(paste("Angular residuals are reported in arcseconds. Ranging residuals are reported in mm."
       ))
     })
+  
     
+  ###############################
+  ##**Create Report
+  ##*
+    output$download_report <- downloadHandler(
+      # 1. Define the filename
+      filename = function() {
+        paste0("report-", Sys.Date(), ".pdf")
+      },
+      # 2. Define the content generation
+      content = function(file) {
+        # Copy the report file to a temporary directory
+        tempReport <- file.path(tempdir(), "report.Rmd")
+        file.copy("report.Rmd", tempReport, overwrite = TRUE)
+        
+        # Set up parameters to pass to Rmd document
+        # You can pull these from input$ or reactive variables
+        params <- list(
+          report_title = "TLS WebApp Results",
+          length_summary = all_results()$lengtherrors_summary,
+          error_plot = error_plot_reactive() # The new plot reactive
+        )
+        
+        # Knit the document
+        rmarkdown::render(tempReport, output_file = file,
+                          params = params,
+                          envir = new.env(parent = globalenv())
+        )
+      }
+    )
+    
+      
   ###############################
   ##**Information
   ##*

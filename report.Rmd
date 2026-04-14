@@ -1,0 +1,25 @@
+---
+title: "`r params$report_title`"
+date: "`r format(Sys.Date(), '%B %d, %Y')`"
+output: pdf_document
+params:
+  report_title: NA
+  length_summary: NA
+  error_plot: NA
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Part I Summary
+`r params$length_summary`
+
+### Part I Error Plot
+```{r, echo=FALSE, fig.width=8, fig.height=3.75, fig.align='center', out.width="80%"}
+# This renders the plot at 8 inches wide and 5 inches tall
+if (!is.null(params$error_plot)) {
+  params$error_plot
+}
+
+### Part II Summary
