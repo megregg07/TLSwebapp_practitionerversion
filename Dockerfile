@@ -20,6 +20,10 @@ RUN R -e "install.packages('MASS',repos='http://cran.rstudio.com/')"
 RUN R -e "install.packages('ggplot2',repos='http://cran.rstudio.com/')"
 RUN R -e "install.packages('tidyr',repos='http://cran.rstudio.com/')"
 RUN R -e "install.packages('tools',repos='http://cran.rstudio.com/')"
+RUN R -e "install.packages('patchwork',repos='http://cran.rstudio.com/')"
+RUN R -e "install.packages('Cairo',repos='http://cran.rstudio.com/')"
+RUN R -e "install.packages('stringr',repos='http://cran.rstudio.com/')"
+
 
 COPY . /srv/shiny-server
 
