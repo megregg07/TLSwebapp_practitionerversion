@@ -5,6 +5,11 @@ RUN apt-get install libglu1-mesa -y
 RUN apt-get install cmake -y
 RUN apt-get install libnlopt-dev -y
 
+RUN apt-get update -y && apt-get install -y \
+    texlive-latex-recommended \
+    texlive-fonts-recommended \
+    texlive-latex-extra
+    
 WORKDIR /srv/shiny-server/
 
 RUN R -e "install.packages('pbkrtest',repos='http://cran.rstudio.com/')"
@@ -23,6 +28,8 @@ RUN R -e "install.packages('tools',repos='http://cran.rstudio.com/')"
 RUN R -e "install.packages('patchwork',repos='http://cran.rstudio.com/')"
 RUN R -e "install.packages('Cairo',repos='http://cran.rstudio.com/')"
 RUN R -e "install.packages('stringr',repos='http://cran.rstudio.com/')"
+
+RUN R -e "tinytex::install_tinytex(force=TRUE)"
 
 
 COPY . /srv/shiny-server
