@@ -6,6 +6,8 @@ params:
   report_title: NA
   length_summary: NA
   error_plot: NA
+  error_table: NA
+  lengtherror_statements: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -15,11 +17,34 @@ knitr::opts_chunk$set(echo = TRUE)
 ### Part I Summary
 `r params$length_summary`
 
-### Part I Error Plot
+<!-- PART I ERROR PLOT -->
 ```{r, echo=FALSE, fig.width=8, fig.height=3.75, fig.align='center', out.width="80%"}
-# This renders the plot at 8 inches wide and 5 inches tall
 if (!is.null(params$error_plot)) {
   params$error_plot
 }
+```
 
+### Part I - Details on the six lengths and their reference values
+```{r, echo=FALSE, results='asis'}
+if (!is.null(params$lengtherror_statements)) {
+  for (item in params$lengtherror_statements$statement) {
+    cat("* ", item, "\n")
+  }
+} else {
+  "No statement data available."
+}
+```
+
+### Part I - Detailed Table of Errors
+<!-- 1. 'params$error_table' is the data you sent from the app-->
+<!-- 2. 'knitr::kable()' turns that data into a pretty table for PDF-->
+```{r, echo=FALSE}
+if (!is.null(params$error_table)) {
+  knitr::kable(params$error_table, 
+               caption = "Part I Length Errors",
+               booktabs = TRUE) 
+} else {
+  "No table data available."
+}
+```
 ### Part II Summary

@@ -367,6 +367,7 @@ server <- function(input, output) {
     ## Get the table of errors and table of statements
     results_out$A_F_LengthError_table = A_F_LengthError_list$table
     A_F_LengthError_statements = A_F_LengthError_list$statements
+    results_out$A_F_LengthError_statements = A_F_LengthError_list$statements
     
     ## LENGTH A
     results_out$errorTable_A = subset(results_out$A_F_LengthError_table, ID=="A")
@@ -772,7 +773,9 @@ server <- function(input, output) {
         params <- list(
           report_title = "TLS WebApp Results",
           length_summary = all_results()$lengtherrors_summary,
-          error_plot = error_plot_reactive() # The new plot reactive
+          error_plot = error_plot_reactive(), # The new plot reactive
+          error_table = all_results()$A_F_LengthError_table, 
+          lengtherror_statements = all_results()$A_F_LengthError_statements
         )
         
         # Knit the document
