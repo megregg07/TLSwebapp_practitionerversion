@@ -29,10 +29,10 @@ library(Cairo) ## for saving pdf with ascii characters (e.g., 'theta')
 library(stringr)   ## for naming things ('str_pad' in "create_pretty_R()")
 
 ## define where to get functions from
-source('R/utils.R')  
+#source('R/utils.R')  
 
 ##**USE THIS WHEN ON MY COMPUTER
-#source("C:/Users/meg3/OneDrive - NIST/Work/OSAC/CSIR subcommitee/TLS/code/WebApp/TLSwebapp_PractitionerVersion/R/utils.R")
+source("C:/Users/meg3/OneDrive - NIST/Work/OSAC/CSIR subcommitee/TLS/code/WebApp/TLSwebapp_PractitionerVersion/R/utils.R")
 
 
 ##############################
@@ -170,6 +170,15 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                ),
                             uiOutput("covMat_info")
                       ),
+                      ##
+                      ## MCS RESULTS
+                      ## 
+                      tabPanel("MCS Results", 
+                               ## Show results of propagation of Sigmahat to lengths
+                               h2("Propagation of SigmaHat to lengths (MCS)"), 
+                               plotOutput("expectederrorPlot", width = "700px", height = "300px"),
+                               br()
+                               ),
                       ## 
                       ## DATA SUMMARY TAB - report # of Targets/Postions, and plots that check for bad targets
                       ##
@@ -204,7 +213,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
 ## DEFINE THE SERVER LOGIC
 ##
 ##############################
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   ## IMPORT THE TLS TEST DATA 
   data_test = reactive({
@@ -274,12 +283,12 @@ server <- function(input, output) {
     dataname_test <- input$dataname_test
     
     ## READ IN THE TLS TEST DATA
-    results_out$data2 = data_test()
+    #results_out$data2 = data_test()
 
     ## CONVERT TLS TEST DATA TO mm, IF NECESSARY
-    data2_list = convertZc_tomm(data_test(), units = input$units)
-    data2 = data2_list$Zc
-    data2_targetList = data2_list$target_list
+    Zc2_named = convertZc_tomm(data_test(), units = input$units)
+    data2 = Zc2_named[,-1]  ## remove the 'target_list' column
+    data2_targetList = Zc2_named[,1] ## seperate out the list of target names
     ## save the data in 'results_out'
     results_out$data2 = data2
     
@@ -314,7 +323,8 @@ server <- function(input, output) {
     ##*  d. save the data 1 in the 'results_out' stuff
     if(input$partII_htest=="Yes") {
       ## a) create the 'data1' file, converting to mm if necessary
-      data1 = convertZc_tomm(data_base(), units = input$units)$Zc
+      Zc1_named = convertZc_tomm(data_base(), units = input$units)
+      data1 = Zc1_named[,-1]
       ## b) determine what the units are
       historicTLS_UnitStatement = if(input$historic_units=='mm') {
         paste("The", dataname_base,  "data coordinates were collected in mm.")
@@ -358,7 +368,7 @@ server <- function(input, output) {
     ##*********************
     ## PART I CALCULATIONS
     ##*********************
-    incProgress(1/5, detail = "Part I analysis")
+    incProgress(1/7, detail = "Part I analysis")
     ## CHECK IF TAPE DATA UNITS ARE MM, AND IF NOT CONVERT THEM TO MM
     ## ... 
     ## Calculate the 4 length errors (one per position) for the six lengths
@@ -407,7 +417,7 @@ server <- function(input, output) {
     ##*********************
     ## Step 1:
     ## transform the Cartesian coordinates into spherical residuals
-    incProgress(2/5, detail = "rigid body transformation on test data")
+    incProgress(2/7, detail = "rigid body transformation on test data")
     results_out$R2 = Zc_to_R(data2)
     
     ## Step 2:
@@ -415,14 +425,36 @@ server <- function(input, output) {
     results_out$X2 = RtoX(results_out$R2)
     
     ## CALCULATE THE COVARIANCE MATRIX FROM THE DATA UNDER TEST
-    results_out$SigmaHat2 = cov(results_out$X2)[1:2,1:2]
+    results_out$SigmaHat2 = cov(results_out$X2)
 
     ## create the statements about the standard deviations in the angular/ranging residuals.
     testdata_sd = round(sqrt(diag(round(results_out$SigmaHat2,3))),2)
     results_out$testdata_SDstatements = HTML(
       paste("The standard deviation in the azimuth angle residuals is", testdata_sd[1], "arcsec.<br>", 
-            "The standard deviation in the elevation angle residuals is", testdata_sd[2], "arcsec."))
-            #"The standard deviation in the ranging residuals is", testdata_sd[3], "mm."))
+            "The standard deviation in the elevation angle residuals is", testdata_sd[2], "arcsec.",
+            "The standard deviation in the ranging residuals is", testdata_sd[3], "mm."))
+    
+
+    ## PROPAGATE SIGMAHAT TO LENGTHS
+    incProgress(3/7, detail = "Monte Carlo simulation - this will take some time")
+    # 1. Initialize the SECOND (inner) progress bar
+    # We set max to nIt so the value represents the actual iteration count
+    mc_progress <- shiny::Progress$new(session, min = 1, max = 3000)
+    mc_progress$set(message = "Running Monte Carlo", value = 0)
+    
+    # Close the inner bar automatically when this block finishes or fails
+    on.exit(mc_progress$close())
+    
+    # 2. Call your function, passing the progress object
+    expected_errors <- obtain_expected_errors(Zc = Zc2_named, 
+                                                          ref_lengths = Dtape, SigmaHat = results_out$SigmaHat2, 
+                                                          nIt = 3000, EE_scale = 3,
+                                              progress_obj = mc_progress)  # Pass the object here
+    incProgress(4/7, detail = "MCS finished")
+    ## now add in the column names that the plotting function will expect
+    results_out$expected_errors = expected_errors %>%
+      mutate(Error = expected_error, 
+             PctError = round(Error/ReferenceLength*100,2))
     
     ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the Historic dataset, if applicable
     results_out$Rpretty_test <- create_pretty_R(results_out$R2, data_name = dataname_test)
@@ -430,25 +462,25 @@ server <- function(input, output) {
     ##**CONDITIONAL ON WHETHER HISTORICAL COMPARISON IS BEING DONE**
     ##* Do the same steps on the historical ('baseline') data
     if(input$partII_htest=="Yes") {
-      incProgress(3/5, detail = "rigid body transformation on historic data")
+      incProgress(5/7, detail = "rigid body transformation on historic data")
       ## Transform Cartesian coordinates to spherical residuals
       results_out$R1 = Zc_to_R(data1)
       ## transform from wide to long
       results_out$X1 = RtoX(results_out$R1)
       ## estimate the covariance matrix
-      results_out$SigmaHat1 = cov(results_out$X1)[1:2,1:2]
+      results_out$SigmaHat1 = cov(results_out$X1)
       
       ## get statement on the historic standard deviations
       basedata_sd = round(sqrt(diag(round(results_out$SigmaHat1,3))),2)
       results_out$basedata_SDstatements = HTML(
         paste("The historical standard deviation in the azimuth angle residuals is", basedata_sd[1], "arcsec.<br>", 
-              "The historical standard deviation in the elevation angle residuals is", basedata_sd[2], "arcsec.")) 
-              #"The historical standard deviation in the ranging residuals is", basedata_sd[3], "mm."))
+              "The historical standard deviation in the elevation angle residuals is", basedata_sd[2], "arcsec.", 
+              "The historical standard deviation in the ranging residuals is", basedata_sd[3], "mm."))
       
       ## Step 3:
       ## Perform the hypothesis test
       ## Step 3: test equality of the covariance matrices
-      incProgress(4/5, detail = "Part II analysis")
+      incProgress(6/7, detail = "Part II analysis")
       p2_results = TLS_cov_check(results_out$X1[,1:2], results_out$X2[,1:2], conf.level = .99)
       results_out$test_results = p2_results$results
       results_out$p2_conclusion = p2_results$conclusion
@@ -704,7 +736,30 @@ server <- function(input, output) {
   #              label.pos = c("center", "top"), col = c("darkred", "dodgerblue"))
   #}, res = 96)
   
+  ###############################
+  ## MCS RESULTS
+  ## Plot the 'expected errors' in the 24 lengths, derived from the MCS
 
+  # 1. Create the plot as a reactive object
+  expectederror_plot_reactive <- reactive({
+    # Check if data exists
+    if(is.null(all_results()$expected_errors)) {
+      return(NULL)
+    }
+    
+    # Call your custom plotting function
+    partIerrorplot(
+      dat = all_results()$expected_errors, 
+      threshold = all_results()$threshold, 
+      plot_as = all_results()$error_reporting, 
+      ylab_name = "Expected error"
+    )
+  })
+  
+  # 2. Render the plot in the web app (later we will render it in the downloadable report format)
+  output$expectederrorPlot <- renderPlot({
+    expectederror_plot_reactive()
+  }, res = 96)
   
   ###############################
   ## Data Summaries

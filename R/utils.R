@@ -3,6 +3,171 @@
 ## UPDATED 03/16/2026 
 ## (new version of the app that takes a single file instead of four files)
 ##
+## UPDATED 04/16/2026
+## Propagation of SigmaHat to lengths added
+
+
+
+## 
+## Function that converts Cartesian coordinates to spherical coordinates
+## NOTE: range will be in the same units as the Zc data (mm, if coming from Bala)
+##       angles will be in radians. 
+##
+Zc_to_Zp <- function(Zc) {
+  nP <- ncol(Zc)/3
+  nT <- nrow(Zc)
+  Zp <- data.frame(matrix(data= '', nrow=nT , ncol= nP*3))
+  for(p in 1:nP) {
+    cols <- (3*p-2):(3*p)
+    Zp[,cols] <- cart2sph(as.matrix(Zc[,cols]))
+  }
+  return(Zp)
+}
+
+##
+## Function that converts spherical coordinates to Cartesian coordinates
+##
+Zp_to_Zc <- function(Zp) {
+  nP <- ncol(Zp)/3
+  nT <- nrow(Zp)
+  Zc <- data.frame(matrix(data= '', nrow=nT , ncol= nP*3))
+  for(p in 1:nP) {
+    cols <- (3*p-2):(3*p)
+    Zc[,cols] <- sph2cart(as.matrix(Zp[,cols]))
+  }
+  return(Zc)
+}
+
+
+##
+## Function that pertubates Zc 
+##  Inputs:  Zc       original set of cartesian coordinates, in mm
+##           SigmaHat the covariance matrix from which to draw perturbations
+##
+##  Output:  Zc'      a pertubated set of cartesian coordinates
+##
+## NOTE: Zc is in cartesian coordinates in mm
+##       SigmaHat has angular values as arcseconds and ranging value in mm
+##      So a bunch of coordinate transformation needs to happen
+##
+pertubate_my_Zc <- function(Zc_in, SigmaHat_in) {
+  ## 1) convert the cartesian coordinates to spherical coordinates 
+  ##    angles are in radians; ranging is in mm (b/c Zc will be in mm)
+  Zp_in <- Zc_to_Zp(Zc_in)
+  
+  ## 2) determine how many triplicate sets we need to draw (nT*nP)
+  nT <- nrow(Zc_in)
+  nP <- ncol(Zc_in/3)
+  
+  ## 3) draw pertubations from multivariate normal dist. with mean 0 and SigmaHat as the covariance matrix
+  ##    NOTE: angle pertuations will be in arcseconds; ranging pertuation will be in mm
+  my_perts_arc <- mvrnorm(n = nT*nP, mu=rep(0,3), SigmaHat_in)
+  
+  ## 4) convert the angular pertuations from arcseconds to radians
+  ##      converting arcseconds to radians: multiple the arcsecond value by (pi/(180*3600))
+  my_perts_rad <- cbind(my_perts_arc[,1]*(pi/(180*3600)), my_perts_arc[,2]*(pi/(180*3600)), my_perts_arc[,3])
+  
+  ## 5) Add the pertubations to the original spherical data
+  ##     NOTE: I need to 'fold' the pertuabtions into a nTxnP matrix so I can add the two objects
+  Zp_prime <- Zp_in + matrix(t(my_perts_rad), nrow = nT, byrow = TRUE)
+  
+  ## 6) Convert the pertubated spherical data to Cartesian coordinates
+  ##    and return the object
+  Zc_prime <- Zp_to_Zc(Zp_prime)
+  return(Zc_prime)
+}
+
+##
+## Function that, given a Zc matrix and a list of lengthIDs + target names defining the lengths (reference_lengths),
+## returns a vector of lengths in the the form
+##   AAAA BBBB CCCC DDDD EEEE FFFF (each length calculated from postion 1, 2, 3, and 4)
+##
+calculate_AFlengths <- function(Zc_in, reference_lengths){
+  ## cycle through each of the A,B,...,F lengths
+  for(l in 1:nrow(reference_lengths)){
+    ## determine how many positions we have
+    nP <- (ncol(Zc_in)-1)/3
+    ## seperate out the two rows that correpond to the targets defining the l'th length
+    Zc_l <- subset(Zc_in, targetID %in% reference_lengths[l,2:3])
+    
+    ## for each of the four positions, calculate the distance between the two targets
+    ## instead of using the 'dist' function, use the 'array slice' method
+    coords_3d <- array(as.matrix(Zc_l[, -1]), dim = c(2, 3, nP))
+    # 2. Subtract row 2 from row 1 for all replicates at once
+    # This results in a 3 x nP matrix of coordinate differences
+    diffs <- coords_3d[1, , ] - coords_3d[2, , ]
+    # 3. Calculate Euclidean distance: sqrt(sum of squares)
+    # We square the differences, sum them by column, and take the root
+    distances_l <- sqrt(colSums(diffs^2))
+    if(l == 1) {
+      distances <- distances_l
+    } else {
+      distances <- c(distances, distances_l)
+    }
+  }
+  ## return the vector of 24 lengths
+  return(distances)
+}
+
+##
+## FUNCTION THAT RUNS THE MCS AND GETS THE 'EXPECTED ERROR' FOR EACH OF THE 24 LENGTHS
+##
+##  INPUTS:   
+##    Zc            set of Cartesian coordinate data, including the "targetID" column
+##    ref_lengths   set of A-F reference lengths, including the identifying targets
+##    SigmaHat      covariance matrix that will be propagated
+##    nIt           number of Monte Carlo iterations
+##    EE_scale      scale factor for the expected error (what do we scale the sd from the MCS by?)
+obtain_expected_errors <- function(Zc, ref_lengths, SigmaHat, nIt = 5000, EE_scale = 3, progress_obj = NULL) {
+  ##
+  ## PRELIMINARY SETUP
+  ##     Ensure that the first column of Zc is called "TargetID"
+  colnames(Zc)[1] <- "TargetID"
+  ##     i) determine the number of positions
+  nP <- (ncol(Zc)-1)/3
+  ##     ii) identify the unique target names that define the lengths (these are in columns 2 and 3 of 'reference_lengths')
+  refLength_targets <- unique(c(ref_lengths[,2], ref_lengths[,3]))
+  ##     iii) subset the original Zc, only keeping the rows for the targets that are involved in the 6 lengths
+  Zc_sub <- subset(Zc, TargetID %in% refLength_targets)
+  ##     vi) Set up a storage matrix: there are 6*nP lengths we need to save
+  lengths_MCS <- matrix(NA_real_, nrow = nIt, ncol = 6*nP)  ##ncol = 190 lengths x 4 positions
+  
+  ##
+  ## RUN THE MCS
+  for (i in 1:nIt) {
+    
+    # --- PROGRESS UPDATE LOGIC ---
+    # Check if a progress object exists and if i is a multiple of 500
+    if (!is.null(progress_obj) && i %% 500 == 0) {
+      progress_obj$set(value = i, detail = paste("Iteration", i, "of", nIt))
+    }
+    # -----------------------------
+    ##    1. pertubate this subset of Zc (need to remove the 'TargetID' column when pertubating)
+    Zc_sub_prime <- data.frame(
+      targetID = Zc_sub[,1], 
+      pertubate_my_Zc(Zc_sub[,-1], SigmaHat))
+    ##    2. Calculate the 24 lengths
+    lengths_prime <- calculate_AFlengths(Zc_sub_prime, ref_lengths)
+    ##    3. Save the lengths in the storage matrix
+    lengths_MCS[i,] <- lengths_prime
+  }
+  
+  ##
+  ## CALCULATE THE 'EXPECTED ERROR' FOR EACH LENGTH, AND PUT IN A NICE DATAFRAME WITH META DATA
+  ##
+  exp_errors <- data.frame(
+    ID = rep(ref_lengths[,1], each = nP), 
+    ReferenceLength = rep(ref_lengths[,4], each = nP),
+    position = rep(paste0("position", 1:nP), length(ref_lengths[,1])), 
+    lengthSD_MCS = apply(lengths_MCS, 2, sd)
+  ) %>%
+    mutate(expected_error = EE_scale*lengthSD_MCS)
+  ##
+  ## And return the result
+  return(exp_errors)
+}
+
+
 
 ##
 ## FUNCITON THAT TAKES AS INPUT 'R' MATRIX, AND RETURNS A 'PRETTY' VERSION OF R 
@@ -175,7 +340,11 @@ convertZc_tomm <- function(Zc_input, units = c("mm", "meters", "inches", "feet")
                meters = Zc*1000, 
                inches = Zc*25.4, 
                feet = Zc*304.8)
-  return(list(Zc = Zc, target_list = target_list))
+  Zc_named <- data.frame(
+    target_list = target_list,
+    Zc)
+  #return(list(Zc = Zc, target_list = target_list))
+  return(Zc_named)
 }
 
 
@@ -297,14 +466,18 @@ lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct')) {
 ##
 ## Function that will plot the Part I length errors
 ##
-partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
+## Modify this so that it can also be used to plot the 'expected errors' 
+## obtained from the MCS (mod. the y-axis labeling)
+##
+partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), ylab_name = c("Error", "Expected error")) {
   plot_as <- match.arg(plot_as)
+  ylab_name <- match.arg(ylab_name)
   
   ## if we're plotting the errors in mm, then the 'y' value will be "Error"
   if(plot_as=='mm') {
     errorplot <- ggplot(dat, aes(x = ReferenceLength, y = Error, color = as.factor(ID))) +
       geom_point() +
-      scale_y_continuous(name = "Error (mm)") +
+      scale_y_continuous(name = paste(ylab_name, "(mm)")) +
       scale_x_continuous(name = "Reference length (mm)") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
       ## make the legend title better
@@ -320,7 +493,7 @@ partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
     ## calculate what the error is as a percentage of the reference length
     errorplot <- ggplot(dat, aes(x = ReferenceLength, y = PctError, color = as.factor(ID))) +
       geom_point() +
-      scale_y_continuous(name = "Error percentage of reference length (%)") +
+      scale_y_continuous(name = paste(ylab_name, "percentage of \nreference length (%)")) +
       scale_x_continuous(name = "Reference length (mm)") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
       ## make the legend title better
