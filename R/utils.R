@@ -7,7 +7,47 @@
 ## Propagation of SigmaHat to lengths added
 
 
-
+##
+## Function that will plot the 'expected errors' from the MCS
+##
+plot_expectederrors <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
+  plot_as <- match.arg(plot_as)
+  
+  ## if we're plotting the errors in mm, then the 'y' value will be "Error"
+  if(plot_as=='mm') {
+    expectederrorplot <- ggplot(dat, aes(x = as.factor(ID), y = expected_error, color = as.factor(Position), 
+                                         shape = as.factor(Position))) +
+      geom_point() +
+      scale_y_continuous(name = "Expected error (mm)") +
+      scale_x_discrete(name = "Length ID") + 
+      geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
+      ## make the legend title better
+      guides(color=guide_legend(title="Position"), shape=guide_legend(title="Position"))
+    ## if the user has input a threshold, add that error threshold to the plot
+    if((1-is.na(threshold)) & is.numeric(threshold)) {
+      expectederrorplot <- expectederrorplot + 
+        geom_hline(yintercept = threshold, color = "grey20", linetype = "dashed")
+    }
+    ## if we're plotting the errors as a pct of the reference length, then the 'y' value will be "PctError"
+  } else {
+    ## calculate what the error is as a percentage of the reference length
+    expectederrorplot <- ggplot(dat, aes(x = as.factor(ID), y = expectederror_pct, color = as.factor(position), 
+                                         shape = as.factor(position))) +
+      geom_point() +
+      scale_y_continuous(name = "Expected error percentage of \nreference length (%)") +
+      scale_x_discrete(name = "Length ID") + 
+      geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
+      ## make the legend title better
+      guides(color=guide_legend(title="Position"), shape=guide_legend(title="Position"))
+    ## if the user has input a threshold, add that error threshold to the plot
+    if((1-is.na(threshold)) & is.numeric(threshold)) {
+      expectederrorplot <- expectederrorplot + 
+        geom_hline(yintercept = threshold, color = "grey20", linetype = "dashed")
+    }
+    
+  }
+  return(expectederrorplot)
+}
 ## 
 ## Function that converts Cartesian coordinates to spherical coordinates
 ## NOTE: range will be in the same units as the Zc data (mm, if coming from Bala)
@@ -158,7 +198,7 @@ obtain_expected_errors <- function(Zc, ref_lengths, SigmaHat, nIt = 5000, EE_sca
   exp_errors <- data.frame(
     ID = rep(ref_lengths[,1], each = nP), 
     ReferenceLength = rep(ref_lengths[,4], each = nP),
-    position = rep(paste0("position", 1:nP), length(ref_lengths[,1])), 
+    Position = rep(paste0("Position", 1:nP), length(ref_lengths[,1])), 
     lengthSD_MCS = apply(lengths_MCS, 2, sd)
   ) %>%
     mutate(expected_error = EE_scale*lengthSD_MCS)
@@ -185,7 +225,7 @@ create_pretty_R <- function(M, data_name) {
     theta = as.numeric(as.matrix(M[,c(seq(1,ncol(M), by = 3))])), ## columns 1,4,7,10 when there are four positions
     phi = as.numeric(as.matrix(M[,c(seq(2,ncol(M), by = 3))])),   ## columns 2,5,8,11 when there are four positions
     r = as.numeric(as.matrix(M[,c(seq(3,ncol(M), by = 3))])),     ## columns 3,6,9,12 when there are four positions
-    position = rep(paste0("position",1:nP), each = 20)
+    position = rep(paste0("Position",1:nP), each = 20)
   )
   ## convert angular residuals from radians to arcseconds
   M_pretty <- M_pretty %>%
@@ -432,56 +472,71 @@ lengthErrors <- function(Dtape, Zc, Zc_names){
 ## a statement
 ##
 
-lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct')) {
+lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct'), section = c('PartI', 'MCS')) {
   report_as <- match.arg(report_as)
+  section <- match.arg(section)
+  ## the statement that is returned depends on whether we're applying this function to the 
+  ## 'lengthError' table or the 'expected_error' table
+  ##
+  ##   Part I: 'absolute length errors'
+  ##   MCS:    'Expected errors'
+  ##
+  my_statement_object <- switch(section,
+                                "PartI" = "absolute length errors",
+                                "MCS"   = "expected errors",
+                                "stop('Invalid section name')" # Optional default error handling
+  )
+  my_col_names <- switch(section, 
+                         "PartI" = c("Error", "PctError"), 
+                         "MCS" = c("ExpectedError", "PctExpError"))
   ## if we're reporting in mm, do stuff in 'mm'
   if(report_as =='mm') {
     ## sort the table based on largest absolute error
-    table_sorted <- table %>% arrange(desc(abs(Error)))
+    table_sorted <- table %>% arrange(desc(abs(y)))
     ## Subset the table, keeping only the values whose absolute error is bigger than the threshold
-    table_subset <- table_sorted[abs(table_sorted$Error) > t_val,]
+    table_subset <- table_sorted[abs(table_sorted$y) > t_val,]
     ## If there are no abs errors that are larger than the threshold, return a statement saying so
     if(nrow(table_subset)==0){
-      statement <- paste("All absolute length errors are smaller than the specified threshold of", t_val, "mm.")
+      statement <- paste("All", my_statement_object, "are smaller than the specified threshold of", t_val, "mm.")
       
     } else{
-      statement <- paste(nrow(table_subset), "out of the", nrow(table), "absolute length errors are larger than the specified 
-                         threshold of", 
+      statement <- paste(nrow(table_subset), "out of the", nrow(table), my_statement_object, "are larger than the specified threshold of", 
                          t_val, "mm.")
     }
   } else { ## otherwise, we're reporting as a percentage..so do all the same things, except for absolute percentage
-    table_sorted <- table %>% arrange(desc(abs(PctError)))
-    table_subset <- table_sorted[abs(table_sorted$PctError) > t_val,]
+    table_sorted <- table %>% arrange(desc(abs(y_pct)))
+    table_subset <- table_sorted[abs(table_sorted$y_pct) > t_val,]
     if(nrow(table_subset)==0){
-      statement <- paste("All length errors are smaller than the specified threshold of", t_val, "% of the reference length.")
+      statement <- paste("All", my_statement_object, "are smaller than the specified threshold of", 
+                         t_val, "% of the reference length.")
       
     } else{
-      statement <- paste(nrow(table_subset), "out of the", nrow(table), "length errors are larger than the specified threshold of", 
+      statement <- paste(nrow(table_subset), "out of the", nrow(table), my_statement_object, "are larger than the specified threshold of", 
                          t_val, "% of the reference length.")
     }
   }
+  colnames(table_subset)[which(colnames(table_subset) %in% c('y', 'y_pct'))] <- my_col_names
   return(list(table = table_subset, statement = statement))
 }
-
 ##
 ## Function that will plot the Part I length errors
 ##
 ## Modify this so that it can also be used to plot the 'expected errors' 
 ## obtained from the MCS (mod. the y-axis labeling)
 ##
-partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), ylab_name = c("Error", "Expected error")) {
+partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
   plot_as <- match.arg(plot_as)
-  ylab_name <- match.arg(ylab_name)
   
   ## if we're plotting the errors in mm, then the 'y' value will be "Error"
   if(plot_as=='mm') {
-    errorplot <- ggplot(dat, aes(x = ReferenceLength, y = Error, color = as.factor(ID))) +
+    errorplot <- ggplot(dat, aes(x = ReferenceLength, y = Error, color = as.factor(ID), 
+                                 shape = as.factor(ID))) +
       geom_point() +
-      scale_y_continuous(name = paste(ylab_name, "(mm)")) +
+      scale_y_continuous(name = "Error (mm)") +
       scale_x_continuous(name = "Reference length (mm)") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
       ## make the legend title better
-      guides(color=guide_legend(title="Length ID"))
+      guides(color=guide_legend(title="Length ID"), shape=guide_legend(title="Length ID"))
     ## if the user has input a threshold, add that error threshold to the plot
     if((1-is.na(threshold)) & is.numeric(threshold)) {
       errorplot <- errorplot + 
@@ -491,13 +546,14 @@ partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), ylab_na
     ## if we're plotting the errors as a pct of the reference length, then the 'y' value will be "PctError"
   } else {
     ## calculate what the error is as a percentage of the reference length
-    errorplot <- ggplot(dat, aes(x = ReferenceLength, y = PctError, color = as.factor(ID))) +
+    errorplot <- ggplot(dat, aes(x = ReferenceLength, y = PctError, color = as.factor(ID), 
+                                 shape = as.factor(ID))) +
       geom_point() +
-      scale_y_continuous(name = paste(ylab_name, "percentage of \nreference length (%)")) +
+      scale_y_continuous(name = "Error percentage of \nreference length (%)") +
       scale_x_continuous(name = "Reference length (mm)") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
       ## make the legend title better
-      guides(color=guide_legend(title="Length ID"))
+      guides(color=guide_legend(title="Length ID"), shape=guide_legend(title="Length ID"))
     ## if the user has input a threshold, add that error threshold to the plot
     if((1-is.na(threshold)) & is.numeric(threshold)) {
       errorplot <- errorplot + 

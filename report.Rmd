@@ -8,6 +8,7 @@ params:
   error_plot: NA
   error_table: NA
   lengtherror_statements: NA
+  expectederror_plot: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -47,4 +48,10 @@ if (!is.null(params$error_table)) {
   "No table data available."
 }
 ```
-### Part II Summary
+### Expected Errors based on MCS
+<!-- EXPECTED ERRORS FROM MCS -->
+```{r, echo=FALSE, fig.width=8, fig.height=3.75, fig.align='center', out.width="80%"}
+if (!is.null(params$expectederror_plot)) {
+  params$expectederror_plot
+}
+```

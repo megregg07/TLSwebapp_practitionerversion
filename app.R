@@ -176,6 +176,9 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                       tabPanel("MCS Results", 
                                ## Show results of propagation of Sigmahat to lengths
                                h2("Propagation of SigmaHat to lengths (MCS)"), 
+                               uiOutput("expectederrors_summary"), 
+                               verbatimTextOutput("expectederrors_subtable"),
+                               br(),
                                plotOutput("expectederrorPlot", width = "700px", height = "300px"),
                                br()
                                ),
@@ -400,12 +403,19 @@ server <- function(input, output, session) {
     
     ## If a threshold was included, count how many absolute length errors are larger
     ## than the threshold, and report the values that were, if applicable
+    ## 
+    
     if(input$includeThreshold=='No') {
       results_out$lengtherrors_summary = "No error threshold was provided."
       results_out$lengtherrors_table = NA
     } else{
-      lengtherrors_exceed = lengthError_statement(table = A_F_LengthError_list$table, t_val = results_out$threshold, 
-                                                  report_as = results_out$error_reporting)
+      ## First make a generic version of the lengthError table so I can feed it into my 'statements' function
+      gtab_PartI <- A_F_LengthError_list$table %>% 
+        reframe(ID, ReferenceLength, Position, Length, 
+                y = Error, y_pct = PctError)
+      ## use the 'statements' function on the generic table
+      lengtherrors_exceed = lengthError_statement(table = gtab_PartI, t_val = results_out$threshold, 
+                                                  report_as = results_out$error_reporting, section = "PartI")
       results_out$lengtherrors_summary = lengtherrors_exceed$statement
       results_out$lengtherrors_subtable = lengtherrors_exceed$table
     }
@@ -434,8 +444,9 @@ server <- function(input, output, session) {
             "The standard deviation in the elevation angle residuals is", testdata_sd[2], "arcsec.",
             "The standard deviation in the ranging residuals is", testdata_sd[3], "mm."))
     
-
-    ## PROPAGATE SIGMAHAT TO LENGTHS
+    ##*********************
+    ##* MCS ---  PROPAGATE SIGMAHAT TO LENGTHS
+    ##*********************
     incProgress(3/7, detail = "Monte Carlo simulation - this will take some time")
     # 1. Initialize the SECOND (inner) progress bar
     # We set max to nIt so the value represents the actual iteration count
@@ -448,19 +459,44 @@ server <- function(input, output, session) {
     # 2. Call your function, passing the progress object
     expected_errors <- obtain_expected_errors(Zc = Zc2_named, 
                                                           ref_lengths = Dtape, SigmaHat = results_out$SigmaHat2, 
-                                                          nIt = 3000, EE_scale = 3,
+                                                          nIt = 500, EE_scale = 3,
                                               progress_obj = mc_progress)  # Pass the object here
     incProgress(4/7, detail = "MCS finished")
     ## now add in the column names that the plotting function will expect
     results_out$expected_errors = expected_errors %>%
-      mutate(Error = expected_error, 
-             PctError = round(Error/ReferenceLength*100,2))
+      mutate(expectederror_pct = round(expected_error/ReferenceLength*100,2))
+    
+    ## If a threshold was included, count how many expected errors are larger
+    ## than the threshold, and report the values that were, if applicable
+    ## 
+
+    if(input$includeThreshold=='No') {
+      results_out$expectederrors_summary = "No error threshold was provided."
+      results_out$expectederrors_subtable = NA
+    } else{
+      ## First make a generic version of the expectederror table so I can feed it into my 'statements' function
+      gtab_MCS <- results_out$expected_errors %>% 
+        reframe(ID, ReferenceLength, Position,
+                y = expected_error, y_pct = expectederror_pct)
+      ## use the 'statements' function on the generic table
+      expectederrors_exceed = lengthError_statement(table = gtab_MCS, t_val = results_out$threshold, 
+                                                  report_as = results_out$error_reporting, section = "MCS")
+      results_out$expectederrors_summary = expectederrors_exceed$statement
+      results_out$expectederrors_subtable = expectederrors_exceed$table
+    }
+    
+    
     
     ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the Historic dataset, if applicable
     results_out$Rpretty_test <- create_pretty_R(results_out$R2, data_name = dataname_test)
     
-    ##**CONDITIONAL ON WHETHER HISTORICAL COMPARISON IS BEING DONE**
-    ##* Do the same steps on the historical ('baseline') data
+    
+    
+    
+    
+    ##*********************
+    ##**PART II -- CONDITIONAL ON WHETHER HISTORICAL COMPARISON IS BEING DONE**
+    ##* Do the same Part II on the historical ('baseline') data
     if(input$partII_htest=="Yes") {
       incProgress(5/7, detail = "rigid body transformation on historic data")
       ## Transform Cartesian coordinates to spherical residuals
@@ -474,7 +510,7 @@ server <- function(input, output, session) {
       basedata_sd = round(sqrt(diag(round(results_out$SigmaHat1,3))),2)
       results_out$basedata_SDstatements = HTML(
         paste("The historical standard deviation in the azimuth angle residuals is", basedata_sd[1], "arcsec.<br>", 
-              "The historical standard deviation in the elevation angle residuals is", basedata_sd[2], "arcsec.", 
+              "The historical standard deviation in the elevation angle residuals is", basedata_sd[2], "arcsec.<br>", 
               "The historical standard deviation in the ranging residuals is", basedata_sd[3], "mm."))
       
       ## Step 3:
@@ -497,9 +533,10 @@ server <- function(input, output, session) {
         Xcomb <- Xcomb[-c(which(is.na(Xcomb[,1]))),]
        }
       ##**REMOVE THE RANGING RESIDUAL COLUMN, IF WE'RE JUST TESTING ANGULAR RESIDUALS
-      results_out$Xcomb = Xcomb[,-3]
+      #results_out$Xcomb = Xcomb[,-3]
+      results_out$Xcomb = Xcomb
       
-      ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the historica data, if applicable 
+      ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the historical data, if applicable 
       results_out$Rpretty_base <- create_pretty_R(results_out$R1, data_name = dataname_base)
       
     }
@@ -659,8 +696,8 @@ server <- function(input, output, session) {
       }
   ## state some info on the estimated covariance matrices 
       HTML(paste("theta = azimuth angle (arcsec)<br>", 
-                 "phi = elevation angle (arcsec)"
-                 #"r = ranging direction (mm)"
+                 "phi = elevation angle (arcsec)<br>",
+                 "r = ranging direction (mm)"
                  ))
     })
 
@@ -738,7 +775,23 @@ server <- function(input, output, session) {
   
   ###############################
   ## MCS RESULTS
+  ## State how many, if any, expected errors exceed the threshold
+  ## then
   ## Plot the 'expected errors' in the 24 lengths, derived from the MCS
+
+  ## Overall statement "x out of y length errors are greater than *threshold*"
+  output$expectederrors_summary <- renderUI({
+    if(is.null(all_results()$expectederrors_summary)) {
+      return(NULL)}
+    return(all_results()$expectederrors_summary)
+  })
+  ## and the corresponding table
+  output$expectederrors_subtable <- renderPrint({
+    if(is.null(all_results()$expectederrors_subtable) | nrow(all_results()$expectederrors_subtable)==0) {
+      invisible()} else{
+        return(all_results()$expectederrors_subtable)
+      }
+  })
 
   # 1. Create the plot as a reactive object
   expectederror_plot_reactive <- reactive({
@@ -748,11 +801,10 @@ server <- function(input, output, session) {
     }
     
     # Call your custom plotting function
-    partIerrorplot(
+    plot_expectederrors(
       dat = all_results()$expected_errors, 
       threshold = all_results()$threshold, 
-      plot_as = all_results()$error_reporting, 
-      ylab_name = "Expected error"
+      plot_as = all_results()$error_reporting
     )
   })
   
@@ -827,10 +879,16 @@ server <- function(input, output, session) {
         # You can pull these from input$ or reactive variables
         params <- list(
           report_title = "TLS WebApp Results",
+          ## PART I RESULTS
           length_summary = all_results()$lengtherrors_summary,
           error_plot = error_plot_reactive(), # The new plot reactive
           error_table = all_results()$A_F_LengthError_table, 
-          lengtherror_statements = all_results()$A_F_LengthError_statements
+          lengtherror_statements = all_results()$A_F_LengthError_statements,
+          ## PART II RESULTS
+          ## --tbd--
+          
+          ## MCS RESULTS
+          expectederror_plot = expectederror_plot_reactive()
         )
         
         # Knit the document
