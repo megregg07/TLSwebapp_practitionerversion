@@ -27,12 +27,13 @@ library(tools)     ## for determining file extension
 library(patchwork) ## for making the data ellipses plots (my version)
 library(Cairo) ## for saving pdf with ascii characters (e.g., 'theta')
 library(stringr)   ## for naming things ('str_pad' in "create_pretty_R()")
+library(RColorBrewer)
 
 ## define where to get functions from
-#source('R/utils.R')  
+source('R/utils.R')  
 
 ##**USE THIS WHEN ON MY COMPUTER
-source("C:/Users/meg3/OneDrive - NIST/Work/OSAC/CSIR subcommitee/TLS/code/WebApp/TLSwebapp_PractitionerVersion/R/utils.R")
+#source("C:/Users/meg3/OneDrive - NIST/Work/OSAC/CSIR subcommitee/TLS/code/WebApp/TLSwebapp_PractitionerVersion/R/utils.R")
 
 
 ##############################
@@ -90,98 +91,72 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
           numericInput("threshold_pct","Error threshold (%)",value = 0.5, step = 0.01, min = 0.01)
         ),
           
-          #fluidRow(
-          #  column(3,
-          #         numericInput("tapeA", label = "Length A", value = 1000, min = 0.01, step = 0.01)),
-          #  column(3, 
-          #         selectInput("t1_A", label = "Target 1", choices=1:20)), 
-          #  column(3, 
-          #         selectInput("t2_A", label = "Target 2", choices=1:20, selected = 2)),
-          #),
-      #), 
           actionButton('runAnalysis','Run Analysis', class = "btn-primary"), 
         ),
         
 
         # Prepare space for all the output
         mainPanel(
-          tabsetPanel(selected = "Part I - Analysis Results", 
+          tabsetPanel(
+            id = 'results_tabs',
+            selected = "Part I - Accuracy", 
                       br(),
                       tabPanel("Information", 
                                uiOutput("info")),
                       ## prepare the output space for "Part I - Analysis" tab 
-                      tabPanel("Part I - Analysis Results", 
-                               br(),
-                          ## If a length error threshold has been included, add the summary statement/table
-                          conditionalPanel(condition = "input.includeThreshold == 'Yes'", 
-                                                h3("Length Error Summary"), 
-                                                uiOutput("length_summary"), 
-                                                verbatimTextOutput("lengtherrors_subtable")),
+                      tabPanel("Part I - Accuracy", 
+                               h2("Accuracy Summary"), 
+                               ## Summary statement
+                               uiOutput("length_summary"), 
+                               ## Summary table -- if threshold given and no values exceed, then there will be no table 
+                               uiOutput("lengtherrors_subtable"),
                                br(),
                                ## Part I - plot
                                plotOutput("errorPlot", width = "700px", height = "300px"),
                                br(),
                                ## All the table of errors and statements for Lengths A-F
-                               h4("Length A - long horizontal"), 
+                               #h5("Length details"), 
                                 uiOutput("statement_A"),
-                                verbatimTextOutput("errorTable_A"),
-                               h4("Length B - short horizontal"),
+                                #verbatimTextOutput("errorTable_A"),
                                 uiOutput("statement_B"),
-                                verbatimTextOutput("errorTable_B"),
-                               h4("Length C - long vertical"), 
                                 uiOutput("statement_C"),
-                                verbatimTextOutput("errorTable_C"),
-                               h4("Length D - short vertical"), 
                                 uiOutput("statement_D"),
-                                verbatimTextOutput("errorTable_D"),
-                               h4("Length E - long diagonal"), 
                                 uiOutput("statement_E"),
-                                verbatimTextOutput("errorTable_E"),
-                               h4("Length F - short diagonal"),
-                                uiOutput("statement_F"),
-                                verbatimTextOutput("errorTable_F")
+                                uiOutput("statement_F"), 
+                                br()
+                                #verbatimTextOutput("errorTable_F")
                                ),
                       ## prepare the output space for "Part II - Analysis" tab 
-                      tabPanel("Part II - Analysis Results",
+                      tabPanel("Part II - Precision",
                             ## if a historic comparison is being made, the first thing to show up should be the 
                             ## results of the statistical hypothesis test
-                            conditionalPanel(condition = "input.partII_htest == 'Yes'", 
-                                             h2("Statistical Test"), 
-                                             uiOutput("p2_interpretation")),
+                              h2("Precision Summary"),
+                            ## ** put the MCS results here
+                              uiOutput("expectederrors_summary"), 
+                              #verbatimTextOutput("expectederrors_subtable"),
+                              uiOutput("expectederrors_subtable"),
+                              br(),
+                              plotOutput("expectederrorPlot", width = "700px", height = "300px"),
+                              br(),
                             ## regardless of historical data, print the standard deviations from the Data Under Test
-                               h3("TLS Angular Precision - data under test"),
+                               #h3("TLS Angular Precision - data under test"),
                                uiOutput("testdata_SDstatements"),
-                            ## if making historic comparison, print the same values for the historic data, 
-                            ## and then show the data ellipse plot
-                            conditionalPanel(condition = "input.partII_htest == 'Yes'", 
-                                             h3("Historic values"), 
-                                             uiOutput("basedata_SDstatements"), 
-                                             br(),
-                                             h2("Data Ellipses"), 
-                                             plotOutput("ellipsePlot", width = "600px", height = "600px")),
 
-                               h3("Covariance matrices"), 
-                               h5("Covariance matrix - data under test"),
-                               verbatimTextOutput("SigmaHat2"),
+                              ##**COVARIANCE MATRICES CAN BE PUT IN THE REPORT*
+                               #h3("Covariance matrices"), 
+                               #h5("Covariance matrix - data under test"),
+                               #verbatimTextOutput("SigmaHat2"),
                   
-                            conditionalPanel(condition = "input.partII_htest == 'Yes'",
-                                           h5("Covariance matix - historic data"),
-                                           verbatimTextOutput("SigmaHat1")
-                               ),
+                            #conditionalPanel(condition = "input.partII_htest == 'Yes'",
+                            #               h5("Covariance matix - historic data"),
+                            #               verbatimTextOutput("SigmaHat1")
+                            #   ),
                             uiOutput("covMat_info")
                       ),
-                      ##
-                      ## MCS RESULTS
                       ## 
-                      tabPanel("MCS Results", 
-                               ## Show results of propagation of Sigmahat to lengths
-                               h2("Propagation of SigmaHat to lengths (MCS)"), 
-                               uiOutput("expectederrors_summary"), 
-                               verbatimTextOutput("expectederrors_subtable"),
-                               br(),
-                               plotOutput("expectederrorPlot", width = "700px", height = "300px"),
-                               br()
-                               ),
+                      ## Historic comparison Will appear here by Server code
+                      ##
+
                       ## 
                       ## DATA SUMMARY TAB - report # of Targets/Postions, and plots that check for bad targets
                       ##
@@ -217,6 +192,33 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
 ##
 ##############################
 server <- function(input, output, session) {
+  
+  ## DETERMINE IF WE NEED THE HISTORIC COMPARISON TAB
+  observeEvent(input$partII_htest, {
+    if (input$partII_htest == "Yes") {
+      insertTab(
+        inputId = "results_tabs",
+        tabPanel(
+          title = "Historic Comparison",
+          value = "historic_tab", # This ID is used to remove it later
+          h2("Accuracy Comparison"),
+          # Add whatever outputs you need here, e.g.:
+          # plotOutput("historicDetailedPlot")
+          h2("Precision Comparison"), 
+          uiOutput("p2_interpretation"), 
+          br(),
+          plotOutput("ellipsePlot", width = "600px", height = "600px"),
+          br(),
+          uiOutput("basedata_SDstatements")
+        ),
+        target = "Part II - Precision", # Place it after this tab
+        position = "after"
+      )
+    } else {
+      # This removes the tab if the user selects "No"
+      removeTab(inputId = "results_tabs", target = "historic_tab")
+    }
+  })
   
   ## IMPORT THE TLS TEST DATA 
   data_test = reactive({
@@ -404,10 +406,19 @@ server <- function(input, output, session) {
     ## If a threshold was included, count how many absolute length errors are larger
     ## than the threshold, and report the values that were, if applicable
     ## 
-    
+
     if(input$includeThreshold=='No') {
-      results_out$lengtherrors_summary = "No error threshold was provided."
-      results_out$lengtherrors_table = NA
+      ## IF NO THRESHOLD IS PROVIDED, PROVIDE A TABLE OF THE LARGEST THREE ERRORS
+      ## the Statement and the table will change, depending on whether the user wants the results
+      ## reported as length errors or as % error...
+      results_out$lengtherrors_summary = switch(input$report_as, 
+             'Length error (mm)' = "No error threshold was provided. Displaying the three largest length errors.",
+             'Percentage of reference length' = "No error threshold was provided. Displaying the three largest percent errors."
+      )
+      results_out$lengtherrors_subtable = switch(input$report_as,
+              'Length error (mm)' = (results_out$A_F_LengthError_table %>% arrange(desc(abs(Error))))[1:3,], 
+              'Percentage of reference length' = (results_out$A_F_LengthError_table %>% arrange(desc(abs(PctError))))[1:3,]                                    
+      )
     } else{
       ## First make a generic version of the lengthError table so I can feed it into my 'statements' function
       gtab_PartI <- A_F_LengthError_list$table %>% 
@@ -441,7 +452,7 @@ server <- function(input, output, session) {
     testdata_sd = round(sqrt(diag(round(results_out$SigmaHat2,3))),2)
     results_out$testdata_SDstatements = HTML(
       paste("The standard deviation in the azimuth angle residuals is", testdata_sd[1], "arcsec.<br>", 
-            "The standard deviation in the elevation angle residuals is", testdata_sd[2], "arcsec.",
+            "The standard deviation in the elevation angle residuals is", testdata_sd[2], "arcsec.<br>",
             "The standard deviation in the ranging residuals is", testdata_sd[3], "mm."))
     
     ##*********************
@@ -459,7 +470,7 @@ server <- function(input, output, session) {
     # 2. Call your function, passing the progress object
     expected_errors <- obtain_expected_errors(Zc = Zc2_named, 
                                                           ref_lengths = Dtape, SigmaHat = results_out$SigmaHat2, 
-                                                          nIt = 500, EE_scale = 3,
+                                                          nIt = 1500, EE_scale = 3,
                                               progress_obj = mc_progress)  # Pass the object here
     incProgress(4/7, detail = "MCS finished")
     ## now add in the column names that the plotting function will expect
@@ -469,10 +480,18 @@ server <- function(input, output, session) {
     ## If a threshold was included, count how many expected errors are larger
     ## than the threshold, and report the values that were, if applicable
     ## 
-
     if(input$includeThreshold=='No') {
-      results_out$expectederrors_summary = "No error threshold was provided."
-      results_out$expectederrors_subtable = NA
+      ## IF NO THRESHOLD IS PROVIDED, PROVIDE A TABLE OF THE LARGEST THREE ERRORS
+      ## the Statement and the table will change, depending on whether the user wants the results
+      ## reported as length errors or as % error...
+      results_out$expectederrors_summary = switch(input$report_as, 
+                                                'Length error (mm)' = "No error threshold was provided. Displaying the three largest maximum expected length errors.",
+                                                'Percentage of reference length' = "No error threshold was provided. Displaying the three largest maximum expected errors as a percent of reference length."
+      )
+      results_out$expectederrors_subtable = switch(input$report_as,
+                                                 'Length error (mm)' = (results_out$expected_errors %>% arrange(desc(abs(expected_error))))[1:3,], 
+                                                 'Percentage of reference length' = (results_out$expected_errors %>% arrange(desc(abs(expectederror_pct))))[1:3,] 
+      )
     } else{
       ## First make a generic version of the expectederror table so I can feed it into my 'statements' function
       gtab_MCS <- results_out$expected_errors %>% 
@@ -485,13 +504,9 @@ server <- function(input, output, session) {
       results_out$expectederrors_subtable = expectederrors_exceed$table
     }
     
-    
-    
     ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the Historic dataset, if applicable
     results_out$Rpretty_test <- create_pretty_R(results_out$R2, data_name = dataname_test)
-    
-    
-    
+
     
     
     ##*********************
@@ -584,11 +599,32 @@ server <- function(input, output, session) {
     return(all_results()$lengtherrors_summary)
   })
   ## and the corresponding table
-  output$lengtherrors_subtable <- renderPrint({
-    if(is.null(all_results()$lengtherrors_subtable) | nrow(all_results()$lengtherrors_subtable)==0) {
-      invisible()} else{
-    return(all_results()$lengtherrors_subtable)
-      }
+  #output$lengtherrors_subtable <- renderUI({
+  #  if (nrow(all_results()$lengtherrors_subtable) > 0) {
+  #    # Return the verbatim output only if data exists
+  #    verbatimTextOutput(all_results()$lengtherrors_subtable)
+  #  } else {
+      # Return nothing, or a simple text message
+      # return(p("No threshold errors detected.")) 
+  #    return(NULL)
+  #  }
+  #})
+  
+  ## Creating a 'conditional' table for the Part I results (no table reported if threshold given and nothing exceeds threshold)
+  # 1. The Dynamic UI Container
+  output$lengtherrors_subtable <- renderUI({
+    # Check if the table has data
+    if (nrow(all_results()$lengtherrors_subtable) > 0) {
+      # Create the placeholder with a unique ID string
+      verbatimTextOutput("actual_table_content")
+    } else {
+      return(NULL)
+    }
+  })
+  # 2. The Actual Content Provider
+  output$actual_table_content <- renderPrint({
+    # This sends the actual data to the placeholder created above
+    all_results()$lengtherrors_subtable
   })
   
   ## The individual length tables
@@ -785,12 +821,22 @@ server <- function(input, output, session) {
       return(NULL)}
     return(all_results()$expectederrors_summary)
   })
-  ## and the corresponding table
-  output$expectederrors_subtable <- renderPrint({
-    if(is.null(all_results()$expectederrors_subtable) | nrow(all_results()$expectederrors_subtable)==0) {
-      invisible()} else{
-        return(all_results()$expectederrors_subtable)
-      }
+
+  ## Creating a 'conditional' table for the Expected Errors
+  # 1. The Dynamic UI Container
+  output$expectederrors_subtable <- renderUI({
+    # Check if the table has data
+    if (nrow(all_results()$expectederrors_subtable) > 0) {
+      # Create the placeholder with a unique ID string
+      verbatimTextOutput("actual_table_content_EE")
+    } else {
+      return(NULL)
+    }
+  })
+  # 2. The Actual Content Provider
+  output$actual_table_content_EE <- renderPrint({
+    # This sends the actual data to the placeholder created above
+    all_results()$expectederrors_subtable
   })
 
   # 1. Create the plot as a reactive object

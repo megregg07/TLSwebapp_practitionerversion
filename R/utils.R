@@ -17,10 +17,12 @@ plot_expectederrors <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
   if(plot_as=='mm') {
     expectederrorplot <- ggplot(dat, aes(x = as.factor(ID), y = expected_error, color = as.factor(Position), 
                                          shape = as.factor(Position))) +
-      geom_point() +
+      geom_point(size = 2) +
       scale_y_continuous(name = "Expected error (mm)") +
       scale_x_discrete(name = "Length ID") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
+      ## use the 'Dark2' color palette -- for Position
+      scale_color_brewer(palette = "Dark2") + 
       ## make the legend title better
       guides(color=guide_legend(title="Position"), shape=guide_legend(title="Position"))
     ## if the user has input a threshold, add that error threshold to the plot
@@ -31,12 +33,14 @@ plot_expectederrors <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
     ## if we're plotting the errors as a pct of the reference length, then the 'y' value will be "PctError"
   } else {
     ## calculate what the error is as a percentage of the reference length
-    expectederrorplot <- ggplot(dat, aes(x = as.factor(ID), y = expectederror_pct, color = as.factor(position), 
-                                         shape = as.factor(position))) +
+    expectederrorplot <- ggplot(dat, aes(x = as.factor(ID), y = expectederror_pct, color = as.factor(Position), 
+                                         shape = as.factor(Position))) +
       geom_point() +
       scale_y_continuous(name = "Expected error percentage of \nreference length (%)") +
       scale_x_discrete(name = "Length ID") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
+      ## use the 'Dark2' color palette -- for position
+      scale_color_brewer(palette = "Dark2") + 
       ## make the legend title better
       guides(color=guide_legend(title="Position"), shape=guide_legend(title="Position"))
     ## if the user has input a threshold, add that error threshold to the plot
@@ -53,29 +57,45 @@ plot_expectederrors <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
 ## NOTE: range will be in the same units as the Zc data (mm, if coming from Bala)
 ##       angles will be in radians. 
 ##
-Zc_to_Zp <- function(Zc) {
-  nP <- ncol(Zc)/3
-  nT <- nrow(Zc)
-  Zp <- data.frame(matrix(data= '', nrow=nT , ncol= nP*3))
-  for(p in 1:nP) {
-    cols <- (3*p-2):(3*p)
-    Zp[,cols] <- cart2sph(as.matrix(Zc[,cols]))
-  }
-  return(Zp)
+Zc_to_Zp <- function(Zc_mat) {
+  # 1. Determine dimensions
+  nT <- nrow(Zc_mat)
+  nP <- ncol(Zc_mat)/3
+  
+  # 2. Reshape the wide matrix (nT x 3*nP) into a long matrix ( (nT*nP) x 3 )
+  # We use t() and matrix(..., byrow = TRUE) to ensure x,y,z stay together
+  Zc_long <- matrix(t(Zc_mat), ncol = 3, byrow = TRUE)
+  
+  # 3. Call cart2sph ONCE on the entire dataset
+  # This returns a matrix with 3 columns: [theta, phi, r]
+  Zp_long <- cart2sph(Zc_long)
+  
+  # 4. Reshape back into the original wide format (nT x 3*nP)
+  Zp_wide <- matrix(t(Zp_long), nrow = nT, byrow = TRUE)
+  
+  return(Zp_wide)
 }
 
 ##
 ## Function that converts spherical coordinates to Cartesian coordinates
 ##
-Zp_to_Zc <- function(Zp) {
-  nP <- ncol(Zp)/3
-  nT <- nrow(Zp)
-  Zc <- data.frame(matrix(data= '', nrow=nT , ncol= nP*3))
-  for(p in 1:nP) {
-    cols <- (3*p-2):(3*p)
-    Zc[,cols] <- sph2cart(as.matrix(Zp[,cols]))
-  }
-  return(Zc)
+Zp_to_Zc <- function(Zp_mat) {
+  # 1. Determine dimensions
+  nT <- nrow(Zp_mat)
+  nP <- ncol(Zp_mat)/3
+  
+  # 2. Reshape the wide matrix (nT x 3*nP) into a long matrix ( (nT*nP) x 3 )
+  # We use t() and matrix(..., byrow = TRUE) to ensure [theta, phi, r] stay together
+  Zp_long <- matrix(t(Zp_mat), ncol = 3, byrow = TRUE)
+  
+  # 3. Call sph2cart ONCE on the entire dataset
+  # This returns a matrix with 3 columns: [x, y, z]
+  Zc_long <- sph2cart(Zp_long)
+  
+  # 4. Reshape back into the original wide format (nT x 3*nP)
+  Zc_wide <- matrix(t(Zc_long), nrow = nT, byrow = TRUE)
+  
+  return(Zc_wide)
 }
 
 
@@ -97,7 +117,7 @@ pertubate_my_Zc <- function(Zc_in, SigmaHat_in) {
   
   ## 2) determine how many triplicate sets we need to draw (nT*nP)
   nT <- nrow(Zc_in)
-  nP <- ncol(Zc_in/3)
+  nP <- ncol(Zc_in)/3
   
   ## 3) draw pertubations from multivariate normal dist. with mean 0 and SigmaHat as the covariance matrix
   ##    NOTE: angle pertuations will be in arcseconds; ranging pertuation will be in mm
@@ -127,7 +147,7 @@ calculate_AFlengths <- function(Zc_in, reference_lengths){
   for(l in 1:nrow(reference_lengths)){
     ## determine how many positions we have
     nP <- (ncol(Zc_in)-1)/3
-    ## seperate out the two rows that correpond to the targets defining the l'th length
+    ## separate out the two rows that correspond to the targets defining the l'th length
     Zc_l <- subset(Zc_in, targetID %in% reference_lengths[l,2:3])
     
     ## for each of the four positions, calculate the distance between the two targets
@@ -245,13 +265,20 @@ plot_my_residuals <- function(Mp) {
   my_plot <- Mp %>%
     pivot_longer(cols = theta:r, names_to = "variable", values_to = "residual") %>%
     mutate(variable = factor(variable, levels = c('theta', 'phi', 'r'))) %>%
-    ggplot(aes(x = as.factor(target), y = residual)) +
+    ggplot(aes(x = as.factor(target), y = residual, color = as.factor(position), 
+               shape = as.factor(position))) +
+    ## make the legend title better
+    guides(color=guide_legend(title="Position"), shape=guide_legend(title="Position")) +
     facet_wrap(vars(variable), nrow = 3, scales = "free_y") + geom_point() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_color_brewer(palette = "Dark2") +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+          panel.grid.minor.y = element_blank()) +
     xlab("Target") + ggtitle(dname)
   
   return(my_plot)
 }
+
+
 
 ##
 ## DATA ELLIPSE FUNCTION
@@ -441,6 +468,14 @@ lengthErrors <- function(Dtape, Zc, Zc_names){
     for(l in 1:length(Dtape[,1])){
       ## Determine which letter
       row_l <- Dtape[l,]
+      ## Paste in the description (e.g., long horizontal) 
+      l_description <- switch(row_l[,1], 
+                              'A' = 'A (long horizontal)', 
+                              'B' = 'B (short horizontal)', 
+                              'C' = 'C (long vertical)', 
+                              'D' = 'D (short vertical)', 
+                              'E' = 'E (long diagonal)', 
+                              'F' = 'F (short diagonal)')
       ## Determine the numeric position of the targets that define the length
       targets_l <- which(Zc_names %in% row_l[2:3])
       # apply the lengthError_table function and save the full dataframe
@@ -450,7 +485,7 @@ lengthErrors <- function(Dtape, Zc, Zc_names){
       )
       statement_l <- data.frame(
         ID = row_l[,1], 
-        statement = paste0("Length ", row_l[,1], " is defined by ", Zc_names[targets_l[1]], " and ", 
+        statement = paste0("Length ", l_description, " is defined by ", Zc_names[targets_l[1]], " and ", 
                            Zc_names[targets_l[2]], ". The reported reference measurement of Length ", 
                            row_l[,1], " is ", row_l[4], " mm.")
       )
@@ -531,7 +566,7 @@ partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
   if(plot_as=='mm') {
     errorplot <- ggplot(dat, aes(x = ReferenceLength, y = Error, color = as.factor(ID), 
                                  shape = as.factor(ID))) +
-      geom_point() +
+      geom_point(size=2) +
       scale_y_continuous(name = "Error (mm)") +
       scale_x_continuous(name = "Reference length (mm)") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
@@ -548,7 +583,7 @@ partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
     ## calculate what the error is as a percentage of the reference length
     errorplot <- ggplot(dat, aes(x = ReferenceLength, y = PctError, color = as.factor(ID), 
                                  shape = as.factor(ID))) +
-      geom_point() +
+      geom_point(size = 2) +
       scale_y_continuous(name = "Error percentage of \nreference length (%)") +
       scale_x_continuous(name = "Reference length (mm)") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
