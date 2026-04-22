@@ -28,6 +28,7 @@ library(patchwork) ## for making the data ellipses plots (my version)
 library(Cairo) ## for saving pdf with ascii characters (e.g., 'theta')
 library(stringr)   ## for naming things ('str_pad' in "create_pretty_R()")
 library(RColorBrewer)
+library(shinyjs)   ## for making a discrete 'advanced options' button
 
 ## define where to get functions from
 source('R/utils.R')  
@@ -35,6 +36,8 @@ source('R/utils.R')
 ##**USE THIS WHEN ON MY COMPUTER
 #source("C:/Users/meg3/OneDrive - NIST/Work/OSAC/CSIR subcommitee/TLS/code/WebApp/TLSwebapp_PractitionerVersion/R/utils.R")
 
+## Generate a random seed that will display to the user, if they select 'Advanced settings'
+rand_seed <- sample(1:1000000, 1)
 
 ##############################
 ##
@@ -42,6 +45,8 @@ source('R/utils.R')
 ##
 ##############################
 ui <- fluidPage(theme = shinytheme("spacelab"),
+    ## Call 'shinyjs'
+    useShinyjs(), # Initialize shinyjs
 
     # Application title
     titlePanel("OSAC TLS Performance Assessment WebApp"),
@@ -56,42 +61,68 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
           
       #conditionalPanel(
       #  condition = "input.upload_or_default == 'Upload Files'", 
-          h2('Upload TLS Data'),
+          h2("1. Upload TLS Data"),
             fileInput('file_TLStest', "Test data", accept = c(".csv", ".txt")), 
             div(style = "margin-top: -20px"),
             textInput(inputId = "dataname_test",
                     label = "Test Data Nickname:",
-                    value = "Test"), 
+                    value = "Test data"), 
             selectInput('units','TLS units',choices=c('mm', 'meters', 'inches')),
-        h3("Historic Comparison"), 
-        selectInput('partII_htest', "Test if TLS precision has changed?", choices = c('No', 'Yes')),
+          
+          h2("2. Upload Reference Lengths"),
+          fileInput('filename_tapedata', "Dataset of Reference Lengths", accept = c(".csv", ".txt")), 
+          div(style = "margin-top: -25px"),
+          selectInput('units_tape','Reference length units',choices=c('mm', 'cm', 'inches')),
+          h2("3. Error Reporting and Specification"),
+          selectInput('report_as', 'Report errors as:', choices = c('Length error (mm)', 'Percentage of reference length')),
+          selectInput('includeThreshold', "Set error specificaion value?", choices = c('No', 'Yes')),
+          ## conditional numeric input that appears if 'includeThreshold' == Yes
+          conditionalPanel(
+            condition = "input.includeThreshold == 'Yes' && input.report_as == 'Length error (mm)'",
+            numericInput("threshold_mm","Error specification (mm)",value = 1, step = 0.1, min = 0.1)
+          ),
+          conditionalPanel(
+            condition = "input.includeThreshold == 'Yes' && input.report_as == 'Percentage of reference length'",
+            numericInput("threshold_pct","Error specification (%)",value = 0.5, step = 0.01, min = 0.01)
+          ),
+        h2("4. Historic Comparison"), 
+        selectInput('partII_htest', "Compare the current data to a previous set of data?", choices = c('No', 'Yes')),
         ## Conditional: if the hypothesis test is to be performed, the user now needs to upload more data
         conditionalPanel(
           condition = "input.partII_htest == 'Yes'", 
+          h3("4a. Upload Historic TLS Data"),
           fileInput('file_TLSbase', "Historic data", accept = c(".csv", ".txt")), 
           div(style = "margin-top: -20px"),
           textInput(inputId = "dataname_base",
                     label = "Historic Data Nickname:",
-                    value = "Historic"),
+                    value = "Historic data"),
           selectInput('historic_units','Historic TLS data units',choices=c('mm', 'meters', 'inches'))
         ),
-          h2("Upload Reference Lengths"),
-            fileInput('filename_tapedata', "Dataset of Reference Lengths", accept = c(".csv", ".txt")), 
-            div(style = "margin-top: -25px"),
-            selectInput('units_tape','Reference length units',choices=c('mm', 'cm', 'inches')),
-            selectInput('report_as', 'Report errors as:', choices = c('Length error (mm)', 'Percentage of reference length')),
-            selectInput('includeThreshold', "Set error threshold?", choices = c('No', 'Yes')),
-            ## conditional numeric input that appears if 'includeThreshold' == Yes
-            conditionalPanel(
-              condition = "input.includeThreshold == 'Yes' && input.report_as == 'Length error (mm)'",
-              numericInput("threshold_mm","Error threshold (mm)",value = 1, step = 0.1, min = 0.1)
-            ),
-        conditionalPanel(
-          condition = "input.includeThreshold == 'Yes' && input.report_as == 'Percentage of reference length'",
-          numericInput("threshold_pct","Error threshold (%)",value = 0.5, step = 0.01, min = 0.01)
+        
+        fluidRow(
+          column(width = 6, 
+                 actionButton('runAnalysis','Run Analysis', class = "btn-primary")
+                 ), 
+          column(width = 6, 
+                 div(style = "text-align: right;",
+                     actionLink("toggle_adv", "Advanced settings", 
+                                style = "color: #888888; font-size: 0.9em;")
+                 )
+          )
         ),
-          
-          actionButton('runAnalysis','Run Analysis', class = "btn-primary"), 
+        ## My 'advanced options' settings
+        #actionLink("toggle_adv", "Advanced settings..."),
+        
+        # 3. The Hidden Section (Appears directly below the link)
+        hidden(
+          div(id = "advanced_section",
+              style = "margin-top: 15px; padding-left: 10px; border-left: 2px solid #ddd;",
+              numericInput("alpha", "Significance Threshold", value = 0.01, step = 0.01, min = .001),
+              numericInput("seed_value", "MCS seed value", value = rand_seed)
+          )
+        ),
+        #br(),
+        #  actionButton('runAnalysis','Run Analysis', class = "btn-primary"), 
         ),
         
 
@@ -112,7 +143,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                uiOutput("lengtherrors_subtable"),
                                br(),
                                ## Part I - plot
-                               plotOutput("errorPlot", width = "700px", height = "300px"),
+                               plotOutput("errorPlot", width = "700px", height = "350px"),
                                br(),
                                ## All the table of errors and statements for Lengths A-F
                                #h5("Length details"), 
@@ -136,11 +167,11 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                               #verbatimTextOutput("expectederrors_subtable"),
                               uiOutput("expectederrors_subtable"),
                               br(),
-                              plotOutput("expectederrorPlot", width = "700px", height = "300px"),
+                              plotOutput("expectederrorPlot", width = "700px", height = "350px"),
                               br(),
                             ## regardless of historical data, print the standard deviations from the Data Under Test
                                #h3("TLS Angular Precision - data under test"),
-                               uiOutput("testdata_SDstatements"),
+                               uiOutput("testdata_SDstatements")
 
                               ##**COVARIANCE MATRICES CAN BE PUT IN THE REPORT*
                                #h3("Covariance matrices"), 
@@ -151,7 +182,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                             #               h5("Covariance matix - historic data"),
                             #               verbatimTextOutput("SigmaHat1")
                             #   ),
-                            uiOutput("covMat_info")
+                            #uiOutput("covMat_info")
                       ),
                       ## 
                       ## Historic comparison Will appear here by Server code
@@ -160,24 +191,21 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                       ## 
                       ## DATA SUMMARY TAB - report # of Targets/Postions, and plots that check for bad targets
                       ##
-                      tabPanel("Data Summary and Report", 
+                      tabPanel("Data Summary & Report", 
                                h2("Download Report"),
                                downloadButton("download_report", "Generate Report"),
                                h3("Data Summary"),
                                ## data summary statement for TLS data under test
                                textOutput("testdata_summary"), 
-                               br(),
-                               ## data summary statement for historic TLS data (if applicable)
-                               conditionalPanel(condition = "input.partII_htest == 'Yes'", 
-                                                textOutput("basedata_summary"),
-                                                br()),
                                ## data summary statement for reference lengths (tape measure)
                                textOutput("tapedata_summary"), 
                                ## Now some plots to check for bad targets
-                               h3("Check for problem targets"), 
                                uiOutput("residualStatement"),
                                plotOutput("resPlot_test", width = "600px", height = "600px"),
+                               ## Now report summary stuff for the Historic Data (if uploaded)
                                conditionalPanel(condition = "input.partII_htest == 'Yes'",
+                                                h3("Historic Data Summary"),
+                                                textOutput("basedata_summary"),
                                                 plotOutput("resPlot_base", width = "600px", height = "600px"))
                                )
           )
@@ -199,7 +227,7 @@ server <- function(input, output, session) {
       insertTab(
         inputId = "results_tabs",
         tabPanel(
-          title = "Historic Comparison",
+          title = "Comparison to Historic Data",
           value = "historic_tab", # This ID is used to remove it later
           h2("Accuracy Comparison"),
           # Add whatever outputs you need here, e.g.:
@@ -218,6 +246,11 @@ server <- function(input, output, session) {
       # This removes the tab if the user selects "No"
       removeTab(inputId = "results_tabs", target = "historic_tab")
     }
+  })
+  
+  ## OBSERVE IF WE NEED THE ADVANCED SETTINGS OPTION
+  observeEvent(input$toggle_adv, {
+    toggle("advanced_section", anim = TRUE)
   })
   
   ## IMPORT THE TLS TEST DATA 
@@ -286,6 +319,10 @@ server <- function(input, output, session) {
     ## GET NAMES FOR THE DATASETS
     dataname_base <- input$dataname_base
     dataname_test <- input$dataname_test
+    ## and also save these to the 'results_out' so I can call them in plots later 
+    ## (yes, having both the above and below is inefficient, but I don't want to break anything)
+    results_out$dataname_test <- input$dataname_test
+    results_out$dataname_base <- input$dataname_base
     
     ## READ IN THE TLS TEST DATA
     #results_out$data2 = data_test()
@@ -306,17 +343,17 @@ server <- function(input, output, session) {
     
     ## 1) Create data summary statement for TLS data under test
     TLS_UnitStatement = if(input$units=='mm') {
-      paste("The", dataname_test, "data coordinates were collected in mm.")
-    } else {paste("The", dataname_test, "data coordinates were collected in", input$units, "and converted to mm.")
+      paste("The", paste0('"',dataname_test,'"'), "coordinates were collected in mm.")
+    } else {paste("The", paste0('"',dataname_test,'"'), "coordinates were collected in", input$units, "and converted to mm.")
     }
     nTP_test <- TLS_getTandP(data2)
-    results_out$testdata_summary <- paste("The", dataname_test, "data are coordinates from", nTP_test$nTargets, "targets 
+    results_out$testdata_summary <- paste("The", paste0('"',dataname_test,'"'), "data are Cartesian coordinates from", nTP_test$nTargets, "targets 
                                             measured from", nTP_test$nPositions, "TLS positions.", 
                                           TLS_UnitStatement)
     ## 2) Create data summary statement for Tape Measure data
     results_out$tapedata_summary = if(input$units_tape=='mm') {
-      paste("Reference lengths were collected in mm. Length errors are in mm")
-    } else {paste("Reference lengths were collected in", input$units_tape, "and converted to mm. Length errors are in mm")
+      paste("Reference lengths were collected in mm. Length errors are in mm.")
+    } else {paste("Reference lengths were collected in", input$units_tape, "and converted to mm. Length errors are in mm.")
     }
     
 
@@ -332,13 +369,13 @@ server <- function(input, output, session) {
       data1 = Zc1_named[,-1]
       ## b) determine what the units are
       historicTLS_UnitStatement = if(input$historic_units=='mm') {
-        paste("The", dataname_base,  "data coordinates were collected in mm.")
-      } else {paste("The", dataname_base, "data coordinates were collected in", input$historic_units, "and converted to mm.")
+        paste("The", paste0('"',dataname_base,'"'),  "coordinates were collected in mm.")
+      } else {paste("The", paste0('"',dataname_base,'"'), "coordinates were collected in", input$historic_units, "and converted to mm.")
       }
       ## c) calculate the number of targets/positions
       nTP_base = TLS_getTandP(data1)
       ## d) create/save the data summary statement for the historical TLS data
-      results_out$basedata_summary <- paste("The", dataname_base, "data are coordinates from", nTP_base$nTargets, "targets 
+      results_out$basedata_summary <- paste("The", paste0('"',dataname_base,'"'), "data are Cartesian coordinates from", nTP_base$nTargets, "targets 
                                             measured from", nTP_base$nPositions, "TLS positions.", 
                                             historicTLS_UnitStatement)
       ## e) save the data 1 in the 'results_out' collection
@@ -412,8 +449,8 @@ server <- function(input, output, session) {
       ## the Statement and the table will change, depending on whether the user wants the results
       ## reported as length errors or as % error...
       results_out$lengtherrors_summary = switch(input$report_as, 
-             'Length error (mm)' = "No error threshold was provided. Displaying the three largest length errors.",
-             'Percentage of reference length' = "No error threshold was provided. Displaying the three largest percent errors."
+             'Length error (mm)' = "No error specification was provided. Displaying the three largest length errors.",
+             'Percentage of reference length' = "No error specification was provided. Displaying the three largest percent errors."
       )
       results_out$lengtherrors_subtable = switch(input$report_as,
               'Length error (mm)' = (results_out$A_F_LengthError_table %>% arrange(desc(abs(Error))))[1:3,], 
@@ -485,8 +522,8 @@ server <- function(input, output, session) {
       ## the Statement and the table will change, depending on whether the user wants the results
       ## reported as length errors or as % error...
       results_out$expectederrors_summary = switch(input$report_as, 
-                                                'Length error (mm)' = "No error threshold was provided. Displaying the three largest maximum expected length errors.",
-                                                'Percentage of reference length' = "No error threshold was provided. Displaying the three largest maximum expected errors as a percent of reference length."
+                                                'Length error (mm)' = "No error specification was provided. Displaying the three largest maximum expected length errors.",
+                                                'Percentage of reference length' = "No error specification was provided. Displaying the three largest maximum expected errors as a percent of reference length."
       )
       results_out$expectederrors_subtable = switch(input$report_as,
                                                  'Length error (mm)' = (results_out$expected_errors %>% arrange(desc(abs(expected_error))))[1:3,], 
@@ -532,10 +569,17 @@ server <- function(input, output, session) {
       ## Perform the hypothesis test
       ## Step 3: test equality of the covariance matrices
       incProgress(6/7, detail = "Part II analysis")
-      p2_results = TLS_cov_check(results_out$X1[,1:2], results_out$X2[,1:2], conf.level = .99)
+      alpha <- 0.01
+      p2_results = TLS_cov_check(results_out$X1, results_out$X2, conf.level = 1-alpha)
       results_out$test_results = p2_results$results
       results_out$p2_conclusion = p2_results$conclusion
-      results_out$p2_interpretation = p2_results$interpretation
+      #results_out$p2_interpretation = p2_results$interpretation
+      pval_clean = ifelse(p2_results$pvalue < 0.001, "<0.001", round(p2_results$pvalue,3))
+      
+      ## full statement on hypothesis test results
+      results_out$p2_interpretation = paste("The statistical methodology detailed in <a href='https://doi.org/10.1111/1556-4029.70256' target='_blank'>Gregg et al. (2026)</a> 
+                                         applied to the uploaded data results in a p-value of", pval_clean, ".", p2_results$interpretation)  
+                                        
     
       ## Step 4:
       ## Combine the data in preparation for plotting the data ellipses
@@ -709,7 +753,8 @@ server <- function(input, output, session) {
     partIerrorplot(
       dat = all_results()$A_F_LengthError_table, 
       threshold = all_results()$threshold, 
-      plot_as = all_results()$error_reporting
+      plot_as = all_results()$error_reporting, 
+      my_title = all_results()$dataname_test
     )
   })
   
@@ -778,7 +823,7 @@ server <- function(input, output, session) {
     if(is.null(all_results()$p2_interpretation)) {
       return(NULL)
     }
-    return(all_results()$p2_interpretation)
+    return(HTML(all_results()$p2_interpretation))
   })
   
   ## The information from the Hotellings T2 test
@@ -850,7 +895,8 @@ server <- function(input, output, session) {
     plot_expectederrors(
       dat = all_results()$expected_errors, 
       threshold = all_results()$threshold, 
-      plot_as = all_results()$error_reporting
+      plot_as = all_results()$error_reporting,
+      my_title = all_results()$dataname_test
     )
   })
   

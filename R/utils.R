@@ -10,7 +10,7 @@
 ##
 ## Function that will plot the 'expected errors' from the MCS
 ##
-plot_expectederrors <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
+plot_expectederrors <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), my_title = NULL) {
   plot_as <- match.arg(plot_as)
   
   ## if we're plotting the errors in mm, then the 'y' value will be "Error"
@@ -50,6 +50,7 @@ plot_expectederrors <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
     }
     
   }
+  expectederrorplot <- expectederrorplot + labs(title = my_title)
   return(expectederrorplot)
 }
 ## 
@@ -61,18 +62,14 @@ Zc_to_Zp <- function(Zc_mat) {
   # 1. Determine dimensions
   nT <- nrow(Zc_mat)
   nP <- ncol(Zc_mat)/3
-  
   # 2. Reshape the wide matrix (nT x 3*nP) into a long matrix ( (nT*nP) x 3 )
   # We use t() and matrix(..., byrow = TRUE) to ensure x,y,z stay together
   Zc_long <- matrix(t(Zc_mat), ncol = 3, byrow = TRUE)
-  
   # 3. Call cart2sph ONCE on the entire dataset
   # This returns a matrix with 3 columns: [theta, phi, r]
   Zp_long <- cart2sph(Zc_long)
-  
   # 4. Reshape back into the original wide format (nT x 3*nP)
   Zp_wide <- matrix(t(Zp_long), nrow = nT, byrow = TRUE)
-  
   return(Zp_wide)
 }
 
@@ -83,18 +80,14 @@ Zp_to_Zc <- function(Zp_mat) {
   # 1. Determine dimensions
   nT <- nrow(Zp_mat)
   nP <- ncol(Zp_mat)/3
-  
   # 2. Reshape the wide matrix (nT x 3*nP) into a long matrix ( (nT*nP) x 3 )
   # We use t() and matrix(..., byrow = TRUE) to ensure [theta, phi, r] stay together
   Zp_long <- matrix(t(Zp_mat), ncol = 3, byrow = TRUE)
-  
   # 3. Call sph2cart ONCE on the entire dataset
   # This returns a matrix with 3 columns: [x, y, z]
   Zc_long <- sph2cart(Zp_long)
-  
   # 4. Reshape back into the original wide format (nT x 3*nP)
   Zc_wide <- matrix(t(Zc_long), nrow = nT, byrow = TRUE)
-  
   return(Zc_wide)
 }
 
@@ -517,7 +510,7 @@ lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct'), sect
   ##   MCS:    'Expected errors'
   ##
   my_statement_object <- switch(section,
-                                "PartI" = "absolute length errors",
+                                "PartI" = "length errors",
                                 "MCS"   = "expected errors",
                                 "stop('Invalid section name')" # Optional default error handling
   )
@@ -532,21 +525,21 @@ lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct'), sect
     table_subset <- table_sorted[abs(table_sorted$y) > t_val,]
     ## If there are no abs errors that are larger than the threshold, return a statement saying so
     if(nrow(table_subset)==0){
-      statement <- paste("All", my_statement_object, "are smaller than the specified threshold of", t_val, "mm.")
+      statement <- paste("All", my_statement_object, "are smaller than the given specification of", t_val, "mm.")
       
     } else{
-      statement <- paste(nrow(table_subset), "out of the", nrow(table), my_statement_object, "are larger than the specified threshold of", 
+      statement <- paste(nrow(table_subset), "out of the", nrow(table), my_statement_object, "are larger than the given specification of", 
                          t_val, "mm.")
     }
   } else { ## otherwise, we're reporting as a percentage..so do all the same things, except for absolute percentage
     table_sorted <- table %>% arrange(desc(abs(y_pct)))
     table_subset <- table_sorted[abs(table_sorted$y_pct) > t_val,]
     if(nrow(table_subset)==0){
-      statement <- paste("All", my_statement_object, "are smaller than the specified threshold of", 
+      statement <- paste("All", my_statement_object, "are smaller than the given specification of", 
                          t_val, "% of the reference length.")
       
     } else{
-      statement <- paste(nrow(table_subset), "out of the", nrow(table), my_statement_object, "are larger than the specified threshold of", 
+      statement <- paste(nrow(table_subset), "out of the", nrow(table), my_statement_object, "are larger than the given specification of", 
                          t_val, "% of the reference length.")
     }
   }
@@ -559,7 +552,7 @@ lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct'), sect
 ## Modify this so that it can also be used to plot the 'expected errors' 
 ## obtained from the MCS (mod. the y-axis labeling)
 ##
-partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
+partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), my_title = NULL) {
   plot_as <- match.arg(plot_as)
   
   ## if we're plotting the errors in mm, then the 'y' value will be "Error"
@@ -573,7 +566,7 @@ partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
       ## make the legend title better
       guides(color=guide_legend(title="Length ID"), shape=guide_legend(title="Length ID"))
     ## if the user has input a threshold, add that error threshold to the plot
-    if((1-is.na(threshold)) & is.numeric(threshold)) {
+    if(!is.na(threshold) & is.numeric(threshold)) {
       errorplot <- errorplot + 
         geom_hline(yintercept = threshold, color = "grey20", linetype = "dashed") +
         geom_hline(yintercept = -threshold, color = "grey20", linetype = "dashed")
@@ -590,13 +583,14 @@ partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct')) {
       ## make the legend title better
       guides(color=guide_legend(title="Length ID"), shape=guide_legend(title="Length ID"))
     ## if the user has input a threshold, add that error threshold to the plot
-    if((1-is.na(threshold)) & is.numeric(threshold)) {
+    if(!is.na(threshold) & is.numeric(threshold)) {
       errorplot <- errorplot + 
         geom_hline(yintercept = threshold, color = "grey20", linetype = "dashed") +
         geom_hline(yintercept = -threshold, color = "grey20", linetype = "dashed")
     }
     
   }
+  errorplot <- errorplot + labs(title = my_title)
   return(errorplot)
 }
 
@@ -871,8 +865,14 @@ TLS_cov_check <- function(dmat1, dmat2, conf.level = 0.95) {
   method <- "Robust Omnibus Test - Hotelling's two sample T2-test"
   RESULT <- ifelse(pval > alpha, 'PASSES', 'FAILS')
   conclusion <- paste('The instrument', RESULT, 'at the', conf.level, 'confidence level.')
-  interpretation <- paste("There is", ifelse(RESULT=="PASSES", 'insufficient', 'sufficient'), 
-  "evidence to conclude that the instrument's precision has significantly changed.")
+  #interpretation <- paste("There is", ifelse(RESULT=="PASSES", 'insufficient', 'sufficient'), 
+  #"evidence to conclude that the instrument's precision has significantly changed.")
+  ## the part that changes
+  cond_interpretation <- ifelse(pval > alpha,
+                                "is not a statistically significant change", 
+                                "<b>is a statistically significant change</b>")
+  interpretation <- paste('At a significance threshold of', alpha, 'there', cond_interpretation, 
+                          'in the spherical precision.')
   
   #rval <- list(method = method, statistic = statistic, parameter = parameter, 
   #             p.value = pval, conclusion = conclusion, 
@@ -880,7 +880,8 @@ TLS_cov_check <- function(dmat1, dmat2, conf.level = 0.95) {
   #class(rval) <- "htest"
   rval <- list(results = HT2, 
                conclusion = conclusion, 
-               interpretation = interpretation)
+               interpretation = interpretation, 
+               pvalue = pval)
   rval
   #HT2
 }
