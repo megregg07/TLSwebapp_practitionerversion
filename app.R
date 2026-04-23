@@ -117,8 +117,10 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
         hidden(
           div(id = "advanced_section",
               style = "margin-top: 15px; padding-left: 10px; border-left: 2px solid #ddd;",
-              numericInput("alpha", "Significance Threshold", value = 0.01, step = 0.01, min = .001),
-              numericInput("seed_value", "MCS seed value", value = rand_seed)
+              h4("Advanced settings"),
+              numericInput("alpha", "Significance Threshold", value = 0.01, step = 0.001, min = .001),
+              numericInput("seed_value", "MCS seed value", value = rand_seed), 
+              numericInput("nIt_mcs", "Number of MCS iterations", value = 3000, min = 500)
           )
         ),
         #br(),
@@ -316,6 +318,15 @@ server <- function(input, output, session) {
     ## USE THIS TO DEBUG
     #browser()
     
+    ## READ IN THE ADVANCED SETTINGS PARAMETERS
+    results_out$alpha <- input$alpha
+    results_out$seed_value <- input$seed_value
+    results_out$nIt_mcs <- input$nIt_mcs
+    
+    ## GET THE FILE NAMES 
+    results_out$filename_TLStest <- input$file_TLStest$name  ## file name for TLS data under test
+    results_out$filename_reflengths <- input$filename_tapedata$name ## filename for reference lengths correponding to TLS data under test
+    
     ## GET NAMES FOR THE DATASETS
     dataname_base <- input$dataname_base
     dataname_test <- input$dataname_test
@@ -498,17 +509,19 @@ server <- function(input, output, session) {
     incProgress(3/7, detail = "Monte Carlo simulation - this will take some time")
     # 1. Initialize the SECOND (inner) progress bar
     # We set max to nIt so the value represents the actual iteration count
-    mc_progress <- shiny::Progress$new(session, min = 1, max = 3000)
+    mc_progress <- shiny::Progress$new(session, min = 1, max = results_out$nIt_mcs)
     mc_progress$set(message = "Running Monte Carlo", value = 0)
     
     # Close the inner bar automatically when this block finishes or fails
     on.exit(mc_progress$close())
     
     # 2. Call your function, passing the progress object
+    set.seed(results_out$seed_value)
     expected_errors <- obtain_expected_errors(Zc = Zc2_named, 
-                                                          ref_lengths = Dtape, SigmaHat = results_out$SigmaHat2, 
-                                                          nIt = 1500, EE_scale = 3,
-                                              progress_obj = mc_progress)  # Pass the object here
+                                                ref_lengths = Dtape, SigmaHat = results_out$SigmaHat2, 
+                                                nIt = results_out$nIt_mcs, 
+                                                EE_scale = 3,
+                                                progress_obj = mc_progress)  # Pass the object here
     incProgress(4/7, detail = "MCS finished")
     ## now add in the column names that the plotting function will expect
     results_out$expected_errors = expected_errors %>%
@@ -569,8 +582,7 @@ server <- function(input, output, session) {
       ## Perform the hypothesis test
       ## Step 3: test equality of the covariance matrices
       incProgress(6/7, detail = "Part II analysis")
-      alpha <- 0.01
-      p2_results = TLS_cov_check(results_out$X1, results_out$X2, conf.level = 1-alpha)
+      p2_results = TLS_cov_check(results_out$X1, results_out$X2, conf.level = 1-results_out$alpha)
       results_out$test_results = p2_results$results
       results_out$p2_conclusion = p2_results$conclusion
       #results_out$p2_interpretation = p2_results$interpretation
@@ -971,16 +983,28 @@ server <- function(input, output, session) {
         # You can pull these from input$ or reactive variables
         params <- list(
           report_title = "TLS WebApp Results",
+          ## DATA NAMES
+          ##   file names
+          filename_TLStest = all_results()$filename_TLStest,   ## fn for TLS data under test
+          filename_reflengths = all_results()$filename_reflengths, ## fn for reference lengths
+          ##   user-specified names
+          dataname_test = all_results()$dataname_test, ## the user-specified name of the TLS data under test
+          
+          
           ## PART I RESULTS
           length_summary = all_results()$lengtherrors_summary,
           error_plot = error_plot_reactive(), # The new plot reactive
           error_table = all_results()$A_F_LengthError_table, 
           lengtherror_statements = all_results()$A_F_LengthError_statements,
+          
           ## PART II RESULTS
-          ## --tbd--
+          expectederrors_summary = all_results()$expectederrors_summary,
+          expected_errors = all_results()$expected_errors,
           
           ## MCS RESULTS
-          expectederror_plot = expectederror_plot_reactive()
+          expectederror_plot = expectederror_plot_reactive(),
+          seed_value = all_results()$seed_value,
+          nIt_mcs = all_results()$nIt_mcs
         )
         
         # Knit the document

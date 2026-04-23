@@ -4,11 +4,23 @@ date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output: pdf_document
 params:
   report_title: NA
+  # Misc. stuff (file names/ user-specified names;)
+  filename_TLStest: NA      #fn TLS data under test
+  filename_reflengths: NA   #fn Reference Lengths
+  dataname_test: NA         #user-name for TLS data under test
+  
+  ## Part I stuff
   length_summary: NA
   error_plot: NA
   error_table: NA
   lengtherror_statements: NA
+  
+  ## MCS stuff
+  expected_errors: NA
+  expectederrors_summary: NA
   expectederror_plot: NA
+  seed_value: NA
+  nIt_mcs: NA
 ---
 
 ```{r setup, include=FALSE}
@@ -24,6 +36,15 @@ if (!is.null(params$error_plot)) {
   params$error_plot
 }
 ```
+### Part II Summary
+`r params$expectederrors_summary`
+
+<!-- EXPECTED ERRORS FROM MCS -->
+```{r, echo=FALSE, fig.width=8, fig.height=3.75, fig.align='center', out.width="80%"}
+if (!is.null(params$expectederror_plot)) {
+  params$expectederror_plot
+}
+```
 
 ### Part I - Details on the six lengths and their reference values
 ```{r, echo=FALSE, results='asis'}
@@ -36,7 +57,7 @@ if (!is.null(params$lengtherror_statements)) {
 }
 ```
 
-### Part I - Detailed Table of Errors
+### Part I - Complete Table of Errors
 <!-- 1. 'params$error_table' is the data you sent from the app-->
 <!-- 2. 'knitr::kable()' turns that data into a pretty table for PDF-->
 ```{r, echo=FALSE}
@@ -48,10 +69,20 @@ if (!is.null(params$error_table)) {
   "No table data available."
 }
 ```
-### Expected Errors based on MCS
+### Part II - Complete Table
 <!-- EXPECTED ERRORS FROM MCS -->
-```{r, echo=FALSE, fig.width=8, fig.height=3.75, fig.align='center', out.width="80%"}
-if (!is.null(params$expectederror_plot)) {
-  params$expectederror_plot
+```{r, echo=FALSE}
+if (!is.null(params$expected_errors)) {
+  knitr::kable(params$expected_errors, 
+               caption = "Part II MCS Results",
+               booktabs = TRUE) 
+} else {
+  "No table data available."
 }
 ```
+These results were obtained from a Monte Carlo simulation using `r params$nIt_mcs` iterations and may be replicated 
+using the seed `r params$seed_value`.
+
+### Data Summaries
+
+'`r params$dataname_test`' data read from file `r params$filename_TLStest`. Reference lengths corresponding to these data were read from file `r params$filename_reflengths`.
