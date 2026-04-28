@@ -54,28 +54,92 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
     # Data input box, with dropdown for units
     sidebarLayout(
         sidebarPanel(
-          ## REMOVING THE OPTION TO RUN EXAMPLE FILES
-          #radioButtons('upload_or_default', "Upload Files or Run Example?", 
-          #             choices = c('Upload Files', 'Run Example Files'), 
-          #             selected = 'Upload Files'),
+         # h2("1. Upload TLS Data"),
+        #    fileInput('file_TLStest', "Test data", accept = c(".csv", ".txt")), 
+        #    div(style = "margin-top: -20px"),
+        #    textInput(inputId = "dataname_test",
+        #            label = "Test Data Nickname:",
+        #            value = "Test data"), 
+        #    selectInput('units','TLS units',choices=c('mm', 'meters', 'inches')),
           
-      #conditionalPanel(
-      #  condition = "input.upload_or_default == 'Upload Files'", 
-          h2("1. Upload TLS Data"),
-            fileInput('file_TLStest', "Test data", accept = c(".csv", ".txt")), 
-            div(style = "margin-top: -20px"),
-            textInput(inputId = "dataname_test",
-                    label = "Test Data Nickname:",
-                    value = "Test data"), 
-            selectInput('units','TLS units',choices=c('mm', 'meters', 'inches')),
+        #  h2("2. Upload Reference Lengths"),
+        #  fileInput('filename_tapedata', "Dataset of Reference Lengths", accept = c(".csv", ".txt")), 
+        #  div(style = "margin-top: -25px"),
+        #  selectInput('units_tape','Reference length units',choices=c('mm', 'cm', 'inches')),
           
-          h2("2. Upload Reference Lengths"),
-          fileInput('filename_tapedata', "Dataset of Reference Lengths", accept = c(".csv", ".txt")), 
-          div(style = "margin-top: -25px"),
-          selectInput('units_tape','Reference length units',choices=c('mm', 'cm', 'inches')),
-          h2("3. Error Reporting and Specification"),
+          width = 4, # Optional: Increasing sidebar width slightly can help side-by-side layouts
+          ## 
+          ## 1. UPLOAD THE CURRENT DATA
+          ##    1a. TLS data
+          ##    1b. Reference lengths
+          ##
+          fluidRow(
+            # --- Column 1: TLS Data ---
+            h3("1. Upload Current Data"),
+            column(6, 
+                   #h3("1a. Upload TLS Data"),
+                   fileInput('file_TLStest', "1a. Upload TLS data", accept = c(".csv", ".txt")), 
+                   div(style = "margin-top: -20px"),
+                   selectInput('units', 'TLS units', choices = c('mm', 'meters', 'inches')),
+                   textInput(inputId = "dataname_test",
+                             label = "Current Data Nickname:",
+                             value = "Test data")
+            ),
+            
+            # --- Column 2: Reference Lengths ---
+            column(6, 
+                   #h3("1b. Upload reference length data"),
+                   fileInput('filename_tapedata', "1b. Upload reference lengths", accept = c(".csv", ".txt")), 
+                   div(style = "margin-top: -20px"),
+                   selectInput('units_tape', 'Reference length units', choices = c('mm', 'cm', 'inches'))
+            )
+          ),
+          ## add a faint line for visual distinction
+          hr(style = "border-top: 1px solid #aaaaaa;"),
+          
+          ## 
+          ## 2. ARE WE MAKING A HISTORICAL COMPARISON?
+          ##    If yes:
+          ##      2a. TLS data
+          ##      2b. Reference lengths
+          ##
+          h3("2. Historic Comparison"), 
+           selectInput('partII_htest', "Compare the current data to a previous set of data?", choices = c('No', 'Yes')),
+          ## If yes, allow user to upload data
+          conditionalPanel(
+            condition = "input.partII_htest == 'Yes'", 
+            fluidRow(
+              # --- Column 1: TLS Data ---
+              #h2("2. Upload Historical TLS Data"),
+              column(6, 
+                     #h3("1a. Upload TLS Data"),
+                     fileInput('file_TLSbase', "2a. Upload historic TLS data", accept = c(".csv", ".txt")),
+                     div(style = "margin-top: -20px"),
+                     selectInput('historic_units','Historic TLS data units',choices=c('mm', 'meters', 'inches')),
+                     textInput(inputId = "dataname_base",
+                               label = "Historic Data Nickname:",
+                               value = "Historic data")
+              )
+              
+              # --- Column 2: Reference Lengths ---
+              #column(6, 
+              #       #h3("1b. Upload reference length data"),
+              #       fileInput('filename_tapedata', "1b. Upload reference lengths", accept = c(".csv", ".txt")), 
+              #       div(style = "margin-top: -20px"),
+              #       selectInput('units_tape', 'Ref units', choices = c('mm', 'cm', 'inches'))
+              #)
+            )
+          ), # <-- CLOSES CONDITIONAL PANEL
+          ## add a faint line for visual distinction
+          hr(style = "border-top: 1px solid #aaaaaa;"),
+          
+          ##
+          ## 3. HOW DO YOU WANT THE PART I ERRORS TO BE REPORTED?
+          ##
+          h3("3. Error Reporting and Specification"),
           selectInput('report_as', 'Report errors as:', choices = c('Length error (mm)', 'Percentage of reference length')),
-          selectInput('includeThreshold', "Set error specificaion value?", choices = c('No', 'Yes')),
+          selectInput('includeThreshold', "Set error specification value?", choices = c('No', 'Yes')),
+          
           ## conditional numeric input that appears if 'includeThreshold' == Yes
           conditionalPanel(
             condition = "input.includeThreshold == 'Yes' && input.report_as == 'Length error (mm)'",
@@ -85,19 +149,21 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
             condition = "input.includeThreshold == 'Yes' && input.report_as == 'Percentage of reference length'",
             numericInput("threshold_pct","Error specification (%)",value = 0.5, step = 0.01, min = 0.01)
           ),
-        h2("4. Historic Comparison"), 
-        selectInput('partII_htest', "Compare the current data to a previous set of data?", choices = c('No', 'Yes')),
+          
+          
+        #h2("4. Historic Comparison"), 
+        #selectInput('partII_htest', "Compare the current data to a previous set of data?", choices = c('No', 'Yes')),
         ## Conditional: if the hypothesis test is to be performed, the user now needs to upload more data
-        conditionalPanel(
-          condition = "input.partII_htest == 'Yes'", 
-          h3("4a. Upload Historic TLS Data"),
-          fileInput('file_TLSbase', "Historic data", accept = c(".csv", ".txt")), 
-          div(style = "margin-top: -20px"),
-          textInput(inputId = "dataname_base",
-                    label = "Historic Data Nickname:",
-                    value = "Historic data"),
-          selectInput('historic_units','Historic TLS data units',choices=c('mm', 'meters', 'inches'))
-        ),
+        #conditionalPanel(
+        #  condition = "input.partII_htest == 'Yes'", 
+        #  h3("4a. Upload Historic TLS Data"),
+        #  fileInput('file_TLSbase', "Historic data", accept = c(".csv", ".txt")), 
+        #  div(style = "margin-top: -20px"),
+        #  textInput(inputId = "dataname_base",
+        #            label = "Historic Data Nickname:",
+        #            value = "Historic data"),
+        #  selectInput('historic_units','Historic TLS data units',choices=c('mm', 'meters', 'inches'))
+        #),
         
         fluidRow(
           column(width = 6, 
@@ -122,23 +188,21 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
               numericInput("seed_value", "MCS seed value", value = rand_seed), 
               numericInput("nIt_mcs", "Number of MCS iterations", value = 3000, min = 500)
           )
-        ),
-        #br(),
-        #  actionButton('runAnalysis','Run Analysis', class = "btn-primary"), 
-        ),
-        
+        )
+        ), # <--- THIS PARENTHESIS CLOSES THE SIDEBAR PANEL CORRECTLY
 
         # Prepare space for all the output
         mainPanel(
+          width = 8, ## set the width = 8, so the total width of the sidebar + mainpanel is equal to 12
           tabsetPanel(
             id = 'results_tabs',
-            selected = "Part I - Accuracy", 
+            selected = "Results - Current Data", 
                       br(),
                       tabPanel("Information", 
                                uiOutput("info")),
                       ## prepare the output space for "Part I - Analysis" tab 
-                      tabPanel("Part I - Accuracy", 
-                               h2("Accuracy Summary"), 
+                      tabPanel("Results - Current Data", 
+                               h2("Part I - Accuracy"), 
                                ## Summary statement
                                uiOutput("length_summary"), 
                                ## Summary table -- if threshold given and no values exceed, then there will be no table 
@@ -156,24 +220,20 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                 uiOutput("statement_D"),
                                 uiOutput("statement_E"),
                                 uiOutput("statement_F"), 
-                                br()
+                                br(), 
+                               
+                                h2("Part II - Precision"),
+                               uiOutput("testdata_SDstatements")
                                 #verbatimTextOutput("errorTable_F")
                                ),
                       ## prepare the output space for "Part II - Analysis" tab 
-                      tabPanel("Part II - Precision",
+                      #tabPanel("Part II - Precision",
                             ## if a historic comparison is being made, the first thing to show up should be the 
                             ## results of the statistical hypothesis test
-                              h2("Precision Summary"),
-                            ## ** put the MCS results here
-                              uiOutput("expectederrors_summary"), 
-                              #verbatimTextOutput("expectederrors_subtable"),
-                              uiOutput("expectederrors_subtable"),
-                              br(),
-                              plotOutput("expectederrorPlot", width = "700px", height = "350px"),
-                              br(),
+                      #        h2("Precision Summary"),
                             ## regardless of historical data, print the standard deviations from the Data Under Test
                                #h3("TLS Angular Precision - data under test"),
-                               uiOutput("testdata_SDstatements")
+                               #uiOutput("testdata_SDstatements")
 
                               ##**COVARIANCE MATRICES CAN BE PUT IN THE REPORT*
                                #h3("Covariance matrices"), 
@@ -185,7 +245,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                             #               verbatimTextOutput("SigmaHat1")
                             #   ),
                             #uiOutput("covMat_info")
-                      ),
+                      #),
                       ## 
                       ## Historic comparison Will appear here by Server code
                       ##
@@ -209,11 +269,11 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                                 h3("Historic Data Summary"),
                                                 textOutput("basedata_summary"),
                                                 plotOutput("resPlot_base", width = "600px", height = "600px"))
-                               )
+                      )
           )
-        )
-    )
-)
+        ) # <--- MAIN PANEL ENDS
+    ) # <--- SIDEBAR LAYOUT ENDS
+) # <--- FLUID PAGE ENDS
 
 
 ##############################
@@ -229,19 +289,27 @@ server <- function(input, output, session) {
       insertTab(
         inputId = "results_tabs",
         tabPanel(
-          title = "Comparison to Historic Data",
+          title = "Historic Comparison",
           value = "historic_tab", # This ID is used to remove it later
           h2("Accuracy Comparison"),
           # Add whatever outputs you need here, e.g.:
           # plotOutput("historicDetailedPlot")
           h2("Precision Comparison"), 
+          uiOutput("basedata_SDstatements"),
+          br(),
           uiOutput("p2_interpretation"), 
           br(),
-          plotOutput("ellipsePlot", width = "600px", height = "600px"),
+          ## ** put the MCS results here
+          uiOutput("expectederrors_summary"), 
+          #verbatimTextOutput("expectederrors_subtable"),
+          uiOutput("expectederrors_subtable"),
           br(),
-          uiOutput("basedata_SDstatements")
+          plotOutput("expectederrorPlot", width = "700px", height = "350px"),
+          br(),
+          #plotOutput("ellipsePlot", width = "600px", height = "600px")
+          uiOutput("ellipse_container")
         ),
-        target = "Part II - Precision", # Place it after this tab
+        target = "Results - Current Data", # Place it after this tab
         position = "after"
       )
     } else {
@@ -281,7 +349,6 @@ server <- function(input, output, session) {
     }
   })
   
-
   ##
   ## IMPORT THE TAPE MEASURE DATA
   ##
@@ -298,6 +365,22 @@ server <- function(input, output, session) {
       #Dtape = read.table(filename_tapedata$datapath, header = TRUE)
       return(Dtape)
     }
+  })
+  
+  ## 
+  ## SOMETHING THAT WILL CHECK WHETHER THE USER WANTS TO SEE THE 'DATA ELLIPSE' PLOT (IF APPLICABLE)
+  show_ellipse <- reactiveVal(FALSE)
+  # Every time "Run Analysis" is clicked, hide the plot link again
+  observeEvent(input$runAnalysis, {
+    show_ellipse(FALSE)
+  })
+  # Listens for the link click (outside the main analysis)
+  observeEvent(input$view_plot_link, {
+    show_ellipse(TRUE)
+  })
+  ## Link to hide the plot
+  observeEvent(input$hide_plot_link, {
+    show_ellipse(FALSE)
   })
   
 
@@ -495,6 +578,9 @@ server <- function(input, output, session) {
     
     ## CALCULATE THE COVARIANCE MATRIX FROM THE DATA UNDER TEST
     results_out$SigmaHat2 = cov(results_out$X2)
+    
+    ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the Historic dataset, if applicable
+    results_out$Rpretty_test <- create_pretty_R(results_out$R2, data_name = dataname_test)
 
     ## create the statements about the standard deviations in the angular/ranging residuals.
     testdata_sd = round(sqrt(diag(round(results_out$SigmaHat2,3))),2)
@@ -504,66 +590,10 @@ server <- function(input, output, session) {
             "The standard deviation in the ranging residuals is", testdata_sd[3], "mm."))
     
     ##*********************
-    ##* MCS ---  PROPAGATE SIGMAHAT TO LENGTHS
-    ##*********************
-    incProgress(3/7, detail = "Monte Carlo simulation - this will take some time")
-    # 1. Initialize the SECOND (inner) progress bar
-    # We set max to nIt so the value represents the actual iteration count
-    mc_progress <- shiny::Progress$new(session, min = 1, max = results_out$nIt_mcs)
-    mc_progress$set(message = "Running Monte Carlo", value = 0)
-    
-    # Close the inner bar automatically when this block finishes or fails
-    on.exit(mc_progress$close())
-    
-    # 2. Call your function, passing the progress object
-    set.seed(results_out$seed_value)
-    expected_errors <- obtain_expected_errors(Zc = Zc2_named, 
-                                                ref_lengths = Dtape, SigmaHat = results_out$SigmaHat2, 
-                                                nIt = results_out$nIt_mcs, 
-                                                EE_scale = 3,
-                                                progress_obj = mc_progress)  # Pass the object here
-    incProgress(4/7, detail = "MCS finished")
-    ## now add in the column names that the plotting function will expect
-    results_out$expected_errors = expected_errors %>%
-      mutate(expectederror_pct = round(expected_error/ReferenceLength*100,2))
-    
-    ## If a threshold was included, count how many expected errors are larger
-    ## than the threshold, and report the values that were, if applicable
-    ## 
-    if(input$includeThreshold=='No') {
-      ## IF NO THRESHOLD IS PROVIDED, PROVIDE A TABLE OF THE LARGEST THREE ERRORS
-      ## the Statement and the table will change, depending on whether the user wants the results
-      ## reported as length errors or as % error...
-      results_out$expectederrors_summary = switch(input$report_as, 
-                                                'Length error (mm)' = "No error specification was provided. Displaying the three largest maximum expected length errors.",
-                                                'Percentage of reference length' = "No error specification was provided. Displaying the three largest maximum expected errors as a percent of reference length."
-      )
-      results_out$expectederrors_subtable = switch(input$report_as,
-                                                 'Length error (mm)' = (results_out$expected_errors %>% arrange(desc(abs(expected_error))))[1:3,], 
-                                                 'Percentage of reference length' = (results_out$expected_errors %>% arrange(desc(abs(expectederror_pct))))[1:3,] 
-      )
-    } else{
-      ## First make a generic version of the expectederror table so I can feed it into my 'statements' function
-      gtab_MCS <- results_out$expected_errors %>% 
-        reframe(ID, ReferenceLength, Position,
-                y = expected_error, y_pct = expectederror_pct)
-      ## use the 'statements' function on the generic table
-      expectederrors_exceed = lengthError_statement(table = gtab_MCS, t_val = results_out$threshold, 
-                                                  report_as = results_out$error_reporting, section = "MCS")
-      results_out$expectederrors_summary = expectederrors_exceed$statement
-      results_out$expectederrors_subtable = expectederrors_exceed$table
-    }
-    
-    ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the Historic dataset, if applicable
-    results_out$Rpretty_test <- create_pretty_R(results_out$R2, data_name = dataname_test)
-
-    
-    
-    ##*********************
     ##**PART II -- CONDITIONAL ON WHETHER HISTORICAL COMPARISON IS BEING DONE**
     ##* Do the same Part II on the historical ('baseline') data
     if(input$partII_htest=="Yes") {
-      incProgress(5/7, detail = "rigid body transformation on historic data")
+      incProgress(3/7, detail = "rigid body transformation on historic data")
       ## Transform Cartesian coordinates to spherical residuals
       results_out$R1 = Zc_to_R(data1)
       ## transform from wide to long
@@ -581,16 +611,17 @@ server <- function(input, output, session) {
       ## Step 3:
       ## Perform the hypothesis test
       ## Step 3: test equality of the covariance matrices
-      incProgress(6/7, detail = "Part II analysis")
+      incProgress(4/7, detail = "Part II analysis")
       p2_results = TLS_cov_check(results_out$X1, results_out$X2, conf.level = 1-results_out$alpha)
       results_out$test_results = p2_results$results
       results_out$p2_conclusion = p2_results$conclusion
       #results_out$p2_interpretation = p2_results$interpretation
+      results_out$pvalue = p2_results$pvalue
       pval_clean = ifelse(p2_results$pvalue < 0.001, "<0.001", round(p2_results$pvalue,3))
       
       ## full statement on hypothesis test results
-      results_out$p2_interpretation = paste("The statistical methodology detailed in <a href='https://doi.org/10.1111/1556-4029.70256' target='_blank'>Gregg et al. (2026)</a> 
-                                         applied to the uploaded data results in a p-value of", pval_clean, ".", p2_results$interpretation)  
+      results_out$p2_interpretation = paste0("The statistical methodology detailed in <a href='https://doi.org/10.1111/1556-4029.70256' target='_blank'>Gregg et al. (2026)</a> 
+                                         comparing the Current and Historical spherical precision results in a p-value of ", pval_clean, ". ", p2_results$interpretation)  
                                         
     
       ## Step 4:
@@ -610,7 +641,67 @@ server <- function(input, output, session) {
       ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the historical data, if applicable 
       results_out$Rpretty_base <- create_pretty_R(results_out$R1, data_name = dataname_base)
       
-    }
+      
+      ##*********************
+      ##* MCS ---  PROPAGATE SIGMAHAT TO LENGTHS
+      ##*            -- this is conditional on whether the hypothesis test was significant
+      ##*********************
+      
+      if(results_out$pvalue<results_out$alpha){
+      incProgress(5/7, detail = "Monte Carlo simulation - this will take some time")
+      # 1. Initialize the SECOND (inner) progress bar
+      # We set max to nIt so the value represents the actual iteration count
+      mc_progress <- shiny::Progress$new(session, min = 1, max = results_out$nIt_mcs)
+      mc_progress$set(message = "Running Monte Carlo", value = 0)
+      
+      # Close the inner bar automatically when this block finishes or fails
+      on.exit(mc_progress$close())
+      
+      # 2. Call your function, passing the progress object
+      set.seed(results_out$seed_value)
+      expected_errors <- obtain_expected_errors(Zc = Zc2_named, 
+                                                ref_lengths = Dtape, SigmaHat = results_out$SigmaHat2, 
+                                                nIt = results_out$nIt_mcs, 
+                                                EE_scale = 3,
+                                                progress_obj = mc_progress)  # Pass the object here
+      incProgress(6/7, detail = "MCS finished")
+      ## now add in the column names that the plotting function will expect
+      results_out$expected_errors = expected_errors %>%
+        mutate(expectederror_pct = round(expected_error/ReferenceLength*100,2))
+      
+      ## If a threshold was included, count how many expected errors are larger
+      ## than the threshold, and report the values that were, if applicable
+      ## 
+      if(input$includeThreshold=='No') {
+        ## IF NO THRESHOLD IS PROVIDED, PROVIDE A TABLE OF THE LARGEST THREE ERRORS
+        ## the Statement and the table will change, depending on whether the user wants the results
+        ## reported as length errors or as % error...
+        results_out$expectederrors_summary = switch(input$report_as, 
+                                                    'Length error (mm)' = "No error specification was provided. Displaying the three largest maximum expected length errors.",
+                                                    'Percentage of reference length' = "No error specification was provided. Displaying the three largest maximum expected errors as a percent of reference length."
+        )
+        results_out$expectederrors_subtable = switch(input$report_as,
+                                                     'Length error (mm)' = (results_out$expected_errors %>% arrange(desc(abs(expected_error))))[1:3,], 
+                                                     'Percentage of reference length' = (results_out$expected_errors %>% arrange(desc(abs(expectederror_pct))))[1:3,] 
+        )
+      } else{
+        ## First make a generic version of the expectederror table so I can feed it into my 'statements' function
+        gtab_MCS <- results_out$expected_errors %>% 
+          reframe(ID, ReferenceLength, Position,
+                  y = expected_error, y_pct = expectederror_pct)
+        ## use the 'statements' function on the generic table
+        expectederrors_exceed = lengthError_statement(table = gtab_MCS, t_val = results_out$threshold, 
+                                                      report_as = results_out$error_reporting, section = "MCS")
+        results_out$expectederrors_summary = expectederrors_exceed$statement
+        results_out$expectederrors_subtable = expectederrors_exceed$table
+      }
+      } else { ## IF THE HYPOTHESIS TEST WAS NOT SIGNIFICANT, NEED TO MAKE SOME GENERAL STATEMENTS
+        results_out$expectederrors_summary = NULL
+        results_out$expectederrors_subtable = NULL
+      }
+      
+    }  # <-- ENDS THE PART II COMPARISON
+    #browser()
     
     return(results_out)
   })
@@ -835,7 +926,10 @@ server <- function(input, output, session) {
     if(is.null(all_results()$p2_interpretation)) {
       return(NULL)
     }
-    return(HTML(all_results()$p2_interpretation))
+    tags$div(
+      style = "max-width: 50%; line-height: 1.5; text-align: justify;",
+      HTML(all_results()$p2_interpretation)
+    )
   })
   
   ## The information from the Hotellings T2 test
@@ -849,10 +943,39 @@ server <- function(input, output, session) {
 
   ###############################
   ##**PART II - DATA ELLIPSES
+  #output$ellipsePlot <- renderPlot({
+  #  if(is.null(all_results()$expected_errors)) {
+  #    return(NULL)
+  #  }
+  #  my_ellipse_plot(all_results()$Xcomb)
+  #}, res = 96)
+  
+  
+  # This waits for all_results() to exist, then decides to show the link or the plot
+  output$ellipse_container <- renderUI({
+    req(all_results()) # Don't show anything until analysis has run at least once
+    if(is.null(all_results()$expected_errors)) {
+          return(NULL)
+      } else{
+        if (show_ellipse() == FALSE) {
+          ## Show the 'Open plot link
+          actionLink("view_plot_link", "Show data ellipse plot")
+        } else {
+          tagList(
+            div(style = "margin-bottom: 10px;",
+                actionLink("hide_plot_link", "Hide data ellipse plot", 
+                           icon = icon("times"), 
+                           style = "color: #d9534f; font-size: 0.9em;")
+            ),
+            plotOutput("ellipsePlot", width = "600px", height = "600px")
+          )
+        }
+      }
+  })
+  
+  # 6. THE PLOT RENDERER
   output$ellipsePlot <- renderPlot({
-    if(is.null(all_results()$Xcomb)) {
-      return(invisible(NULL))
-    }
+    req(show_ellipse(), all_results()$Xcomb)
     my_ellipse_plot(all_results()$Xcomb)
   }, res = 96)
   
@@ -883,7 +1006,7 @@ server <- function(input, output, session) {
   # 1. The Dynamic UI Container
   output$expectederrors_subtable <- renderUI({
     # Check if the table has data
-    if (nrow(all_results()$expectederrors_subtable) > 0) {
+    if ( !is.null(all_results()$expected_errors) && nrow(all_results()$expectederrors_subtable) > 0) {
       # Create the placeholder with a unique ID string
       verbatimTextOutput("actual_table_content_EE")
     } else {
@@ -902,14 +1025,14 @@ server <- function(input, output, session) {
     if(is.null(all_results()$expected_errors)) {
       return(NULL)
     }
-    
-    # Call your custom plotting function
-    plot_expectederrors(
-      dat = all_results()$expected_errors, 
-      threshold = all_results()$threshold, 
-      plot_as = all_results()$error_reporting,
-      my_title = all_results()$dataname_test
-    )
+
+      # Render the plot only if condition is met
+      plot_expectederrors(
+        dat = all_results()$expected_errors, 
+        threshold = all_results()$threshold, 
+        plot_as = all_results()$error_reporting,
+        my_title = all_results()$dataname_test
+      )
   })
   
   # 2. Render the plot in the web app (later we will render it in the downloadable report format)
