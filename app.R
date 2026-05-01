@@ -109,8 +109,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
           conditionalPanel(
             condition = "input.partII_htest == 'Yes'", 
             fluidRow(
-              # --- Column 1: TLS Data ---
-              #h2("2. Upload Historical TLS Data"),
+              # --- Column 1: historic TLS Data ---
               column(6, 
                      #h3("1a. Upload TLS Data"),
                      fileInput('file_TLSbase', "2a. Upload historic TLS data", accept = c(".csv", ".txt")),
@@ -119,15 +118,13 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                      textInput(inputId = "dataname_base",
                                label = "Historic Data Nickname:",
                                value = "Historic data")
+              ),
+              #--- Column 2: Historic Reference Lengths ---
+              column(6, 
+                     fileInput('filename_reflengths_hist', "2b. Upload historic reference lengths", accept = c(".csv", ".txt")), 
+                     div(style = "margin-top: -20px"),
+                     selectInput('reflengths_hist_units', 'Historic reference length units', choices = c('mm', 'cm', 'inches'))
               )
-              
-              # --- Column 2: Reference Lengths ---
-              #column(6, 
-              #       #h3("1b. Upload reference length data"),
-              #       fileInput('filename_tapedata', "1b. Upload reference lengths", accept = c(".csv", ".txt")), 
-              #       div(style = "margin-top: -20px"),
-              #       selectInput('units_tape', 'Ref units', choices = c('mm', 'cm', 'inches'))
-              #)
             )
           ), # <-- CLOSES CONDITIONAL PANEL
           ## add a faint line for visual distinction
@@ -223,7 +220,20 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                 br(), 
                                
                                 h2("Part II - Precision"),
-                               uiOutput("testdata_SDstatements")
+                               uiOutput("testdata_SDstatements"), 
+                               br(), 
+                               uiOutput("p2_interpretation"), 
+                               uiOutput("ellipse_container"),
+                               br(),
+                               ## statement about the expected error range from MCS
+                               uiOutput("EER_explanation"),
+                               br(),
+                               ## ** put the MCS results here
+                               uiOutput("expectederrors_summary"), 
+                               #verbatimTextOutput("expectederrors_subtable"),
+                               uiOutput("expectederrors_subtable"),
+                               br(),
+                               plotOutput("expectederrorPlot", width = "700px", height = "350px")
                                 #verbatimTextOutput("errorTable_F")
                                ),
                       ## prepare the output space for "Part II - Analysis" tab 
@@ -256,11 +266,35 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                       tabPanel("Data Summary & Report", 
                                h2("Download Report"),
                                downloadButton("download_report", "Generate Report"),
-                               h3("Data Summary"),
-                               ## data summary statement for TLS data under test
-                               textOutput("testdata_summary"), 
-                               ## data summary statement for reference lengths (tape measure)
-                               textOutput("tapedata_summary"), 
+                               #h3("Data Summaries"),
+                               br(),
+                               #fluidRow(
+                              #   column(width = 6,
+                              #          uiOutput("summary_currentdata")
+                               #  ),
+                              #   column(width = 6,
+                                        # We wrap the conditionalPanel around the column or vice versa.
+                                        # Putting it inside ensures the 'Current' data stays on the left 
+                                        # even if the 'Historic' data is hidden.
+                               #         conditionalPanel(
+                              #            condition = "input.partII_htest == 'Yes'", 
+                              #            uiOutput("summary_historicdata")
+                              #          )
+                              #   )
+                              # ),
+                              div(style = "display: flex; justify-content: flex-start; gap: 50px;",
+                                  div(style = "min-width: 250px;", 
+                                      uiOutput("summary_currentdata")
+                                  ),
+                                  conditionalPanel(
+                                    condition = "input.partII_htest == 'Yes'",
+                                    div(style = "min-width: 250px;", 
+                                        uiOutput("summary_historicdata")
+                                    )
+                                  )
+                              ),
+                               br(),
+
                                ## Now some plots to check for bad targets
                                uiOutput("residualStatement"),
                                plotOutput("resPlot_test", width = "600px", height = "600px"),
@@ -292,22 +326,31 @@ server <- function(input, output, session) {
           title = "Historic Comparison",
           value = "historic_tab", # This ID is used to remove it later
           h2("Accuracy Comparison"),
-          # Add whatever outputs you need here, e.g.:
-          # plotOutput("historicDetailedPlot")
+          ## Historical Part I accuracy statement
+          uiOutput("length_summary_hist"), 
+          ## Summary table -- if threshold given and no values exceed, then there will be no table 
+          uiOutput("lengtherrors_subtable_hist"),
+          br(),
+          ## Historical Part I accuracy plot
+          plotOutput("errorPlot_hist", width = "700px", height = "350px"),
+          br(),
+          ## Historical precision comparison
           h2("Precision Comparison"), 
           uiOutput("basedata_SDstatements"),
           br(),
-          uiOutput("p2_interpretation"), 
-          br(),
-          ## ** put the MCS results here
-          uiOutput("expectederrors_summary"), 
-          #verbatimTextOutput("expectederrors_subtable"),
-          uiOutput("expectederrors_subtable"),
-          br(),
-          plotOutput("expectederrorPlot", width = "700px", height = "350px"),
-          br(),
-          #plotOutput("ellipsePlot", width = "600px", height = "600px")
+          #uiOutput("p2_interpretation"), 
           uiOutput("ellipse_container")
+          #br(),
+          ## statement about the expected error range from MCS
+          #uiOutput("EER_explanation"),
+          #br(),
+          ## ** put the MCS results here
+          #uiOutput("expectederrors_summary"), 
+          #verbatimTextOutput("expectederrors_subtable"),
+          #uiOutput("expectederrors_subtable"),
+          #br(),
+          #plotOutput("expectederrorPlot", width = "700px", height = "350px")
+          #plotOutput("ellipsePlot", width = "600px", height = "600px")
         ),
         target = "Results - Current Data", # Place it after this tab
         position = "after"
@@ -323,7 +366,12 @@ server <- function(input, output, session) {
     toggle("advanced_section", anim = TRUE)
   })
   
-  ## IMPORT THE TLS TEST DATA 
+  
+  ###########################################################
+  ##***IMPORT THE DATA***
+  ##
+  ##***Current data**
+  ## IMPORT THE CURRENT TLS DATA (the data under test)
   data_test = reactive({
     if(is.null(input$file_TLStest)) {
       return(NULL)
@@ -335,8 +383,26 @@ server <- function(input, output, session) {
       return(data_test)
     }
   })
+  ## IMPORT THE CURRENT REFERENCE VALUES ('tape data')
+  Dtape = reactive({
+    if(is.null(input$filename_tapedata)) {
+      return(NULL)
+    } else {
+      ext = tools::file_ext(input$filename_tapedata$name)
+      Dtape = switch(ext, csv = read.csv(input$filename_tapedata$datapath), 
+                     txt = read.table(input$filename_tapedata$datapath, header = TRUE), 
+                     validate("Invalid file; Please upload a .csv or .txt file"))
+      
+      #filename_tapedata = input$filename_tapedata
+      #Dtape = read.table(filename_tapedata$datapath, header = TRUE)
+      return(Dtape)
+    }
+  })
   
-  ## IMPORT THE BASELINE DATA 
+  ##
+  ##**Historic data**
+  ##*
+  ## IMPORT THE HISTORIC TLS DATA (baseline)
   data_base = reactive({
     if(is.null(input$file_TLSbase)) {
       return(NULL)
@@ -349,23 +415,19 @@ server <- function(input, output, session) {
     }
   })
   
-  ##
-  ## IMPORT THE TAPE MEASURE DATA
-  ##
-  Dtape = reactive({
-    if(is.null(input$filename_tapedata)) {
+  ## IMPORT THE HISTORIC REFERENCE VALUES ('tape data)
+  reflengths_hist = reactive({
+    if(is.null(input$filename_reflengths_hist)) {
       return(NULL)
     } else {
-      ext = tools::file_ext(input$filename_tapedata$name)
-      Dtape = switch(ext, csv = read.csv(input$filename_tapedata$datapath), 
-                           txt = read.table(input$filename_tapedata$datapath, header = TRUE), 
-                           validate("Invalid file; Please upload a .csv or .txt file"))
-      
-      #filename_tapedata = input$filename_tapedata
-      #Dtape = read.table(filename_tapedata$datapath, header = TRUE)
-      return(Dtape)
+      ext = tools::file_ext(input$filename_reflengths_hist$name)
+      reflengths_hist = switch(ext, csv = read.csv(input$filename_reflengths_hist$datapath), 
+                     txt = read.table(input$filename_reflengths_hist$datapath, header = TRUE), 
+                     validate("Invalid file; Please upload a .csv or .txt file"))
+      return(reflengths_hist)
     }
   })
+
   
   ## 
   ## SOMETHING THAT WILL CHECK WHETHER THE USER WANTS TO SEE THE 'DATA ELLIPSE' PLOT (IF APPLICABLE)
@@ -401,16 +463,18 @@ server <- function(input, output, session) {
     ## USE THIS TO DEBUG
     #browser()
     
-    ## READ IN THE ADVANCED SETTINGS PARAMETERS
+    ##*
+    ##**READ IN THE ADVANCED SETTINGS PARAMETERS**
+    ##*
     results_out$alpha <- input$alpha
     results_out$seed_value <- input$seed_value
     results_out$nIt_mcs <- input$nIt_mcs
     
     ## GET THE FILE NAMES 
-    results_out$filename_TLStest <- input$file_TLStest$name  ## file name for TLS data under test
-    results_out$filename_reflengths <- input$filename_tapedata$name ## filename for reference lengths correponding to TLS data under test
+    results_out$filename_TLStest <- input$file_TLStest$name  ## file name for current TLS data
+    results_out$filename_reflengths <- input$filename_tapedata$name ## filename for current reference lengths
     
-    ## GET NAMES FOR THE DATASETS
+    ## GET THE (possibly user-defined) NICKNAMES FOR THE DATASETS
     dataname_base <- input$dataname_base
     dataname_test <- input$dataname_test
     ## and also save these to the 'results_out' so I can call them in plots later 
@@ -428,61 +492,14 @@ server <- function(input, output, session) {
     ## save the data in 'results_out'
     results_out$data2 = data2
     
-    ##**************************
-    ## DATA SUMMARY STATEMENTS
-    ##
-    # GET UNITS FOR TLS DATA UNDER TEST AND TAPE
-    results_out$units = input$units
-    results_out$units_tape = input$units_tape
-    
-    ## 1) Create data summary statement for TLS data under test
-    TLS_UnitStatement = if(input$units=='mm') {
-      paste("The", paste0('"',dataname_test,'"'), "coordinates were collected in mm.")
-    } else {paste("The", paste0('"',dataname_test,'"'), "coordinates were collected in", input$units, "and converted to mm.")
-    }
-    nTP_test <- TLS_getTandP(data2)
-    results_out$testdata_summary <- paste("The", paste0('"',dataname_test,'"'), "data are Cartesian coordinates from", nTP_test$nTargets, "targets 
-                                            measured from", nTP_test$nPositions, "TLS positions.", 
-                                          TLS_UnitStatement)
-    ## 2) Create data summary statement for Tape Measure data
-    results_out$tapedata_summary = if(input$units_tape=='mm') {
-      paste("Reference lengths were collected in mm. Length errors are in mm.")
-    } else {paste("Reference lengths were collected in", input$units_tape, "and converted to mm. Length errors are in mm.")
-    }
-    
-
-    ##
-    ##**Conditional that historical data is being used:
-    ##*  a. create the 'data1' file
-    ##*  b. calculate the number of targets/positions
-    ##*  c. create the historical data summary statement
-    ##*  d. save the data 1 in the 'results_out' stuff
-    if(input$partII_htest=="Yes") {
-      ## a) create the 'data1' file, converting to mm if necessary
-      Zc1_named = convertZc_tomm(data_base(), units = input$units)
-      data1 = Zc1_named[,-1]
-      ## b) determine what the units are
-      historicTLS_UnitStatement = if(input$historic_units=='mm') {
-        paste("The", paste0('"',dataname_base,'"'),  "coordinates were collected in mm.")
-      } else {paste("The", paste0('"',dataname_base,'"'), "coordinates were collected in", input$historic_units, "and converted to mm.")
-      }
-      ## c) calculate the number of targets/positions
-      nTP_base = TLS_getTandP(data1)
-      ## d) create/save the data summary statement for the historical TLS data
-      results_out$basedata_summary <- paste("The", paste0('"',dataname_base,'"'), "data are Cartesian coordinates from", nTP_base$nTargets, "targets 
-                                            measured from", nTP_base$nPositions, "TLS positions.", 
-                                            historicTLS_UnitStatement)
-      ## e) save the data 1 in the 'results_out' collection
-      results_out$data1 = data1
-      }
-    
     ## READ IN THE TAPE MEASURE DATA
     Dtape = Dtape()
     ## If tape_units are not already mm, convert to mm (unit options are mm, cm or inches)
     Dtape = Dtape_ToMM(dat = Dtape, units = input$units_tape)
     
-    
-    #browser()
+    ##
+    ##**DETERMINE IF AN ERROR THRESHOLD WAS SET*
+    ##
     ## DETERMINE IF AN ERROR THRESHOLD WAS SET...this could either be given in mm or as a %
     ## There is no longer a need to convert the threshold to mm...it must be given as mm or %
     ## first, convert threshold to mm, if necessary
@@ -498,8 +515,120 @@ server <- function(input, output, session) {
     
     ## this can be fed directly into the Part I plotting function
     results_out$error_reporting = switch(input$report_as, 
-              'Length error (mm)' = 'mm', 
-              'Percentage of reference length' = 'pct')
+                                         'Length error (mm)' = 'mm', 
+                                         'Percentage of reference length' = 'pct')
+    
+    ##**************************
+    ## DATA SUMMARY STATEMENTS
+    ##
+    # GET UNITS FOR TLS DATA UNDER TEST AND TAPE
+    results_out$units = input$units
+    results_out$units_tape = input$units_tape
+    
+    ## 1) Create data summary statement for TLS data under test
+    results_out$TLS_UnitStatement = if(input$units=='mm') {
+      paste("The", paste0('"',dataname_test,'"'), "coordinates were collected in mm.")
+    } else {paste("The", paste0('"',dataname_test,'"'), "coordinates were collected in", input$units, "and converted to mm.")
+    }
+    nTP_test <- TLS_getTandP(data2)
+    ## save the number of targets/positions for the TLS data under test
+    results_out$nT_test <- nTP_test$nTargets
+    results_out$nP_test <- nTP_test$nPositions
+    results_out$testdata_summary <- paste("The", paste0('"',dataname_test,'"'), "data are Cartesian coordinates from", nTP_test$nTargets, "targets 
+                                            measured from", nTP_test$nPositions, "TLS positions.", 
+                                          results_out$TLS_UnitStatement)
+    ## 2) Create data summary statement for Tape Measure data
+    results_out$tapedata_summary = if(input$units_tape=='mm') {
+      paste("Reference lengths were collected in mm.")
+    } else {paste("Reference lengths were collected in", input$units_tape, "and converted to mm.")
+    }
+    
+
+    ##
+    ##**Conditional that historical data is being used:
+    ##*  a. create the 'data1' file
+    ##*  b. calculate the number of targets/positions
+    ##*  c. create the historical data summary statement
+    ##*  d. save the data 1 in the 'results_out' stuff
+    if(input$partII_htest=="Yes") {
+      ## 1. GET THE FILE NAMES 
+      results_out$filename_TLShist <- input$file_TLSbase$name  ## file name for historic TLS data
+      results_out$filename_reflengths_hist <- input$filename_reflengths_hist$name ## filename for historic reference lengths
+      
+      ## 1. Read in the historic TLS data and do stuff with it
+      ##    a) create the 'data1' file, converting to mm if necessary
+      Zc1_named = convertZc_tomm(data_base(), units = input$historic_units)
+      data1 = Zc1_named[,-1]
+      ##    aa) separate out the list of target names for the historic data
+      data1_targetList = Zc1_named[,1] 
+      ##    b) determine what the units are
+      results_out$historicTLS_UnitStatement = if(input$historic_units=='mm') {
+        paste("The", paste0('"',dataname_base,'"'),  "coordinates were collected in mm.")
+      } else {paste("The", paste0('"',dataname_base,'"'), "coordinates were collected in", input$historic_units, "and converted to mm.")
+      }
+      ##    c) calculate the number of targets/positions
+      nTP_base = TLS_getTandP(data1)
+      results_out$nT_base = nTP_base$nTargets
+      results_out$nP_base = nTP_base$nPositions
+      ##    d) create/save the data summary statement for the historical TLS data
+      results_out$basedata_summary <- paste("The", paste0('"',dataname_base,'"'), "data are Cartesian coordinates from", nTP_base$nTargets, "targets 
+                                            measured from", nTP_base$nPositions, "TLS positions.", 
+                                            results_out$historicTLS_UnitStatement)
+      ##    e) save the data 1 in the 'results_out' collection
+      results_out$data1 = data1
+
+      
+      ##
+      ## 2. Read in the historic reference length data and do stuff with it
+      ##    a) Read in the historic Reference Length data
+      reflengths_hist = reflengths_hist()
+      ##    b) Read in the units for this data
+      results_out$reflengths_hist_units = input$reflengths_hist_units
+      ## Add a nice statement about the historic reference data units (were they converted?)
+      results_out$reflengths_hist_summary = if(input$reflengths_hist_units=='mm') {
+        paste("Historic reference lengths were collected in mm.")
+      } else {paste("Historic reference lengths were collected in", input$units_tape, "and converted to mm.")
+      }
+      
+      ##    c) Convert the historic reference lengths to mm, if necessary
+      reflengths_hist = Dtape_ToMM(dat = reflengths_hist, units = input$reflengths_hist_units)
+      ##    d) Calculate the length errors for the historic data
+      A_F_LengthError_list_hist = lengthErrors(Dtape = reflengths_hist, Zc = data1, Zc_names = data1_targetList)
+      results_out$A_F_LengthError_table_hist = A_F_LengthError_list_hist$table
+      ##    e) Do all the stuff to calculate/report Part I-type reporting but for the historic data
+      ##
+      ## If a threshold was included, count how many absolute length errors are larger
+      ## than the threshold, and report the values that were, if applicable
+      ## 
+      if(input$includeThreshold=='No') {
+        ## IF NO THRESHOLD IS PROVIDED, PROVIDE A TABLE OF THE LARGEST THREE ERRORS
+        ## the Statement and the table will change, depending on whether the user wants the results
+        ## reported as length errors or as % error...
+        results_out$lengtherrors_summary_hist = switch(input$report_as, 
+                                                  'Length error (mm)' = "No error specification was provided. Displaying the three largest historic length errors.",
+                                                  'Percentage of reference length' = "No error specification was provided. Displaying the three largest historic percent errors."
+        )
+        results_out$lengtherrors_subtable_hist = switch(input$report_as,
+                                                   'Length error (mm)' = (results_out$A_F_LengthError_table_hist %>% arrange(desc(abs(Error))))[1:3,], 
+                                                   'Percentage of reference length' = (results_out$A_F_LengthError_table_hist %>% arrange(desc(abs(PctError))))[1:3,]                                    
+        )
+      } else{
+        ## First make a generic version of the lengthError table so I can feed it into my 'statements' function
+        gtab_PartI_hist <- results_out$A_F_LengthError_table_hist %>% 
+          reframe(ID, ReferenceLength, Position, Length, 
+                  y = Error, y_pct = PctError)
+        ## use the 'statements' function on the generic table
+        ##**PROBABLY NEED TO EDIT THE 'lengthError_statement' function to either be 'historic' statement or 'current' statement*
+        lengtherrors_exceed_hist = lengthError_statement(table = gtab_PartI_hist, t_val = results_out$threshold, 
+                                                    report_as = results_out$error_reporting, section = "PartI")
+        results_out$lengtherrors_summary_hist = paste("<b>Historic data:</b>", lengtherrors_exceed_hist$statement)
+        results_out$lengtherrors_subtable_hist = lengtherrors_exceed_hist$table
+      }
+      
+      }
+
+    #browser()
+
 
     ##*********************
     ## PART I CALCULATIONS
@@ -667,7 +796,9 @@ server <- function(input, output, session) {
       incProgress(6/7, detail = "MCS finished")
       ## now add in the column names that the plotting function will expect
       results_out$expected_errors = expected_errors %>%
-        mutate(expectederror_pct = round(expected_error/ReferenceLength*100,2))
+        mutate(lengthSD_MCS = round(lengthSD_MCS, 3), 
+               EER = round(EER, 3), 
+               EER_pct = round(EER/ReferenceLength*100,2))
       
       ## If a threshold was included, count how many expected errors are larger
       ## than the threshold, and report the values that were, if applicable
@@ -681,14 +812,14 @@ server <- function(input, output, session) {
                                                     'Percentage of reference length' = "No error specification was provided. Displaying the three largest maximum expected errors as a percent of reference length."
         )
         results_out$expectederrors_subtable = switch(input$report_as,
-                                                     'Length error (mm)' = (results_out$expected_errors %>% arrange(desc(abs(expected_error))))[1:3,], 
-                                                     'Percentage of reference length' = (results_out$expected_errors %>% arrange(desc(abs(expectederror_pct))))[1:3,] 
+                                                     'Length error (mm)' = (results_out$expected_errors %>% arrange(desc(abs(EER))))[1:3,], 
+                                                     'Percentage of reference length' = (results_out$expected_errors %>% arrange(desc(abs(EER_pct))))[1:3,] 
         )
       } else{
         ## First make a generic version of the expectederror table so I can feed it into my 'statements' function
         gtab_MCS <- results_out$expected_errors %>% 
           reframe(ID, ReferenceLength, Position,
-                  y = expected_error, y_pct = expectederror_pct)
+                  y = EER, y_pct = EER_pct)
         ## use the 'statements' function on the generic table
         expectederrors_exceed = lengthError_statement(table = gtab_MCS, t_val = results_out$threshold, 
                                                       report_as = results_out$error_reporting, section = "MCS")
@@ -769,6 +900,7 @@ server <- function(input, output, session) {
     }
   })
   # 2. The Actual Content Provider
+  ## renderPrint changed to renderDT
   output$actual_table_content <- renderPrint({
     # This sends the actual data to the placeholder created above
     all_results()$lengtherrors_subtable
@@ -866,7 +998,57 @@ server <- function(input, output, session) {
     error_plot_reactive()
   }, res = 96)
   
-
+  #############################
+  ## HISTORICAL COMPARISON 
+  ##
+  ## PART I - HISTORICAL
+  ##
+  ## Statement ('x out of k length errors exceed the threshold')
+  output$length_summary_hist <- renderUI({
+    if(is.null(all_results()$lengtherrors_summary_hist)) {
+      return(NULL)}
+    HTML(all_results()$lengtherrors_summary_hist)
+  })
+  
+  ## Creating a 'conditional' table for the historical Part I results (no table reported if threshold given and nothing exceeds threshold)
+  # 1. The Dynamic UI Container
+  output$lengtherrors_subtable_hist <- renderUI({
+    if(nrow(all_results()$lengtherrors_subtable_hist)==0) {
+      return(NULL)
+    } else {
+      # Create the placeholder with a unique ID string
+      verbatimTextOutput("actual_table_content_hist")
+    }
+  })
+  # 2. The Actual Content Provider
+  output$actual_table_content_hist <- renderPrint({
+    # This sends the actual data to the placeholder created above
+    all_results()$lengtherrors_subtable_hist
+  })
+  
+  ## 
+  ## And now plot the historic Part I plot
+  ##
+  # 1. Create the plot as a reactive object
+  error_plot_reactive_hist <- reactive({
+    # Check if data exists
+    if(is.null(all_results()$A_F_LengthError_table_hist)) {
+      return(NULL)
+    }
+    # Call your custom plotting function
+    partIerrorplot(
+      dat = all_results()$A_F_LengthError_table_hist, 
+      threshold = all_results()$threshold, 
+      plot_as = all_results()$error_reporting, 
+      my_title = all_results()$dataname_base, 
+      color = "no"
+    )
+  })
+  
+  # 2. Render the plot in the web app (later we will render it in the downloadable report format)
+  output$errorPlot_hist <- renderPlot({
+    error_plot_reactive_hist()
+  }, res = 96)
   
   #############################
   ##** PART II ANALYSIS
@@ -940,7 +1122,6 @@ server <- function(input, output, session) {
     return(all_results()$test_results)
   })
   
-
   ###############################
   ##**PART II - DATA ELLIPSES
   #output$ellipsePlot <- renderPlot({
@@ -954,12 +1135,12 @@ server <- function(input, output, session) {
   # This waits for all_results() to exist, then decides to show the link or the plot
   output$ellipse_container <- renderUI({
     req(all_results()) # Don't show anything until analysis has run at least once
-    if(is.null(all_results()$expected_errors)) {
+    if(is.null(all_results()$Xcomb)) {
           return(NULL)
       } else{
         if (show_ellipse() == FALSE) {
           ## Show the 'Open plot link
-          actionLink("view_plot_link", "Show data ellipse plot")
+          actionLink("view_plot_link", "Show data ellipse plot to compare precisions")
         } else {
           tagList(
             div(style = "margin-bottom: 10px;",
@@ -994,6 +1175,22 @@ server <- function(input, output, session) {
   ## State how many, if any, expected errors exceed the threshold
   ## then
   ## Plot the 'expected errors' in the 24 lengths, derived from the MCS
+  
+  ## Explain what the EER values are (this is always shown, if the MCS simulation was run)
+  output$EER_explanation <- renderUI({
+    # Logic check
+    if ( !is.null(all_results()$expected_errors)) {
+      # Use tags$p, tags$span, or just HTML text
+      return(tags$p("The effect of the instrument’s current spherical precision on the length measurements has been 
+                    estimated using a Monte Carlo simulation. The “expected error range” (EER) value computed from 
+                    this simulation is the range of error, for a given length and position, that is expected in the 
+                    instrument’s measurement due to the current spherical precision.",
+                    style = "max-width: 50%; line-height: 1.5; text-align: justify;"))
+    } else {
+      # Returning NULL ensures the UI element is completely empty/removed
+      return(NULL)
+    }
+  })
 
   ## Overall statement "x out of y length errors are greater than *threshold*"
   output$expectederrors_summary <- renderUI({
@@ -1042,6 +1239,48 @@ server <- function(input, output, session) {
   
   ###############################
   ## Data Summaries
+  output$summary_currentdata <- renderUI({
+    req(all_results()$filename_TLStest)
+    # Use HTML to recognize line breaks
+    HTML(paste0(
+      "<h3>Current data summary:</h3>",
+      "<h4>TLS data</h4>",
+      "<div style='margin-left: 20px;'>", # Start indentation
+      "<b>filename:</b> ", all_results()$filename_TLStest, "<br/>",
+      "<b>nickname:</b> ", all_results()$dataname_test, "<br/>",
+      "<b># of targets:</b> ", all_results()$nT_test, "<br/>",
+      "<b># of positions:</b> ", all_results()$nP_test, "<br/>", 
+      "<b>units:</b> ", all_results()$TLS_UnitStatement, "<br/>",
+      "</div>", # End indentation
+      "<h4>Reference Lengths</h4>", 
+      "<div style='margin-left: 20px;'>", # Start indentation
+      "<b>filename:</b> ", all_results()$filename_reflengths, "<br/>",
+      "<b>units:</b> ", all_results()$tapedata_summary,
+      "</div>" # End indentation
+    ))
+  })
+  
+  output$summary_historicdata <- renderUI({
+    req(all_results()$filename_TLShist)
+    # Use HTML to recognize line breaks
+    HTML(paste0(
+      "<h3>Historic data summary:</h3>",
+      "<h4>TLS data</h4>",
+      "<div style='margin-left: 20px;'>", # Start indentation
+      "<b>filename:</b> ", all_results()$filename_TLShist, "<br/>",
+      "<b>nickname:</b> ", all_results()$dataname_base, "<br/>",
+      "<b># of targets:</b> ", all_results()$nT_base, "<br/>",
+      "<b># of positions:</b> ", all_results()$nP_base, "<br/>", 
+      "<b>units:</b> ", all_results()$historicTLS_UnitStatement, "<br/>",
+      "</div>", # End indentation
+      "<h4>Reference Lengths</h4>", 
+      "<div style='margin-left: 20px;'>", # Start indentation
+      "<b>filename:</b> ", all_results()$filename_reflengths_hist, "<br/>",
+      "<b>units:</b> ", all_results()$reflengths_hist_summary,
+      "</div>" # End indentation
+    ))
+  })
+  
     output$testdata_summary <- renderText({
       if(is.null(all_results()$testdata_summary)) {
         return(NULL)
@@ -1083,6 +1322,7 @@ server <- function(input, output, session) {
     })
     
     output$residualStatement <- renderUI({
+      req(all_results())
       HTML(paste("Angular residuals are reported in arcseconds. Ranging residuals are reported in mm."
       ))
     })

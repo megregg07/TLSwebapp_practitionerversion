@@ -28,6 +28,9 @@ RUN R -e "install.packages('tools',repos='http://cran.rstudio.com/')"
 RUN R -e "install.packages('patchwork',repos='http://cran.rstudio.com/')"
 RUN R -e "install.packages('Cairo',repos='http://cran.rstudio.com/')"
 RUN R -e "install.packages('stringr',repos='http://cran.rstudio.com/')"
+RUN R -e "install.packages('RColorBrewer',repos='http://cran.rstudio.com/')"
+RUN R -e "install.packages('shinyjs',repos='http://cran.rstudio.com/')"
+
 
 # still need to debug command below
 #RUN R -e "tinytex::install_tinytex(force=TRUE)"

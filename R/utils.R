@@ -8,21 +8,20 @@
 
 
 ##
-## Function that will plot the 'expected errors' from the MCS
+## Function that will plot the 'expected error range' from the MCS
 ##
 plot_expectederrors <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), my_title = NULL) {
   plot_as <- match.arg(plot_as)
   
   ## if we're plotting the errors in mm, then the 'y' value will be "Error"
   if(plot_as=='mm') {
-    expectederrorplot <- ggplot(dat, aes(x = as.factor(ID), y = expected_error, color = as.factor(Position), 
+    expectederrorplot <- ggplot(dat, aes(x = as.factor(ID), y = EER, color = as.factor(Position), 
                                          shape = as.factor(Position))) +
       geom_point(size = 2) +
-      scale_y_continuous(name = "Expected error (mm)") +
+      scale_y_continuous(name = "Expected error range (mm)") +
       scale_x_discrete(name = "Length ID") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
-      ## use the 'Dark2' color palette -- for Position
-      scale_color_brewer(palette = "Dark2") + 
+        scale_color_brewer(palette = "Dark2") +
       ## make the legend title better
       guides(color=guide_legend(title="Position"), shape=guide_legend(title="Position"))
     ## if the user has input a threshold, add that error threshold to the plot
@@ -33,14 +32,14 @@ plot_expectederrors <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), my
     ## if we're plotting the errors as a pct of the reference length, then the 'y' value will be "PctError"
   } else {
     ## calculate what the error is as a percentage of the reference length
-    expectederrorplot <- ggplot(dat, aes(x = as.factor(ID), y = expectederror_pct, color = as.factor(Position), 
+    expectederrorplot <- ggplot(dat, aes(x = as.factor(ID), y = EER_pct, color = as.factor(Position), 
                                          shape = as.factor(Position))) +
       geom_point() +
-      scale_y_continuous(name = "Expected error percentage of \nreference length (%)") +
+      scale_y_continuous(name = "Expected error range as a \npercentage of the reference length (%)") +
       scale_x_discrete(name = "Length ID") + 
       geom_hline(yintercept = 0, color = "grey20", linetype = "dotted") +
       ## use the 'Dark2' color palette -- for position
-      scale_color_brewer(palette = "Dark2") + 
+      scale_color_brewer(palette = "Dark2") +
       ## make the legend title better
       guides(color=guide_legend(title="Position"), shape=guide_legend(title="Position"))
     ## if the user has input a threshold, add that error threshold to the plot
@@ -206,7 +205,7 @@ obtain_expected_errors <- function(Zc, ref_lengths, SigmaHat, nIt = 5000, EE_sca
   }
   
   ##
-  ## CALCULATE THE 'EXPECTED ERROR' FOR EACH LENGTH, AND PUT IN A NICE DATAFRAME WITH META DATA
+  ## CALCULATE THE 'EXPECTED ERROR RANGE' FOR EACH LENGTH, AND PUT IN A NICE DATAFRAME WITH META DATA
   ##
   exp_errors <- data.frame(
     ID = rep(ref_lengths[,1], each = nP), 
@@ -214,7 +213,7 @@ obtain_expected_errors <- function(Zc, ref_lengths, SigmaHat, nIt = 5000, EE_sca
     Position = rep(paste0("Position", 1:nP), length(ref_lengths[,1])), 
     lengthSD_MCS = apply(lengths_MCS, 2, sd)
   ) %>%
-    mutate(expected_error = EE_scale*lengthSD_MCS)
+    mutate(EER = EE_scale*lengthSD_MCS)
   ##
   ## And return the result
   return(exp_errors)
@@ -511,12 +510,12 @@ lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct'), sect
   ##
   my_statement_object <- switch(section,
                                 "PartI" = "length errors",
-                                "MCS"   = "expected errors",
+                                "MCS"   = "expected error ranges",
                                 "stop('Invalid section name')" # Optional default error handling
   )
   my_col_names <- switch(section, 
                          "PartI" = c("Error", "PctError"), 
-                         "MCS" = c("ExpectedError", "PctExpError"))
+                         "MCS" = c("EER", "EER_pct"))
   ## if we're reporting in mm, do stuff in 'mm'
   if(report_as =='mm') {
     ## sort the table based on largest absolute error
@@ -525,7 +524,7 @@ lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct'), sect
     table_subset <- table_sorted[abs(table_sorted$y) > t_val,]
     ## If there are no abs errors that are larger than the threshold, return a statement saying so
     if(nrow(table_subset)==0){
-      statement <- paste("All", my_statement_object, "are smaller than the given specification of", t_val, "mm.")
+      statement <- paste("All", nrow(table_sorted), my_statement_object, "are smaller than the given specification of", t_val, "mm.")
       
     } else{
       statement <- paste(nrow(table_subset), "out of the", nrow(table), my_statement_object, "are larger than the given specification of", 
@@ -535,7 +534,7 @@ lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct'), sect
     table_sorted <- table %>% arrange(desc(abs(y_pct)))
     table_subset <- table_sorted[abs(table_sorted$y_pct) > t_val,]
     if(nrow(table_subset)==0){
-      statement <- paste("All", my_statement_object, "are smaller than the given specification of", 
+      statement <- paste("All", nrow(table_sorted), my_statement_object, "are smaller than the given specification of", 
                          t_val, "% of the reference length.")
       
     } else{
@@ -552,8 +551,9 @@ lengthError_statement <- function(table, t_val, report_as = c('mm', 'pct'), sect
 ## Modify this so that it can also be used to plot the 'expected errors' 
 ## obtained from the MCS (mod. the y-axis labeling)
 ##
-partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), my_title = NULL) {
+partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), my_title = NULL, color = c('yes', 'no')) {
   plot_as <- match.arg(plot_as)
+  color <- match.arg(color)
   
   ## if we're plotting the errors in mm, then the 'y' value will be "Error"
   if(plot_as=='mm') {
@@ -591,6 +591,9 @@ partIerrorplot <- function(dat, threshold= NA, plot_as = c('mm', 'pct'), my_titl
     
   }
   errorplot <- errorplot + labs(title = my_title)
+  if (color == "no") {
+    errorplot <- errorplot + scale_color_manual(values = rep("black", length(unique(dat$ID))))
+  }
   return(errorplot)
 }
 
