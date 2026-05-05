@@ -2,12 +2,31 @@
 title: "`r params$report_title`"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output: pdf_document
+header-includes:
+#  - \usepackage{tcolorbox}
 params:
   report_title: NA
+  
   # Misc. stuff (file names/ user-specified names;)
+  ## CURRENT DATA
+  ##   TLS data - meta
   filename_TLStest: NA      #fn TLS data under test
+  dataname_test: NA         #user-specified nickname for TLS data under test
+  nT_test: NA
+  nP_test: NA
+  TLS_UnitStatement: NA
+  ##    Reference Length data
   filename_reflengths: NA   #fn Reference Lengths
-  dataname_test: NA         #user-name for TLS data under test
+  tapedata_summary: NA      #units for Reference Lengths (current)
+  ##
+  ## HISTORIC DATA
+  ##    TLS data
+  filename_TLShist: NA      #fn for historic TLS data
+  dataname_base: NA         #user-specified nickname for Historic TLS data
+  nT_base: NA               #number of targets in Historic TLS data
+  nP_base: NA               #number of positions in Historic TLS data
+  historicTLS_UnitStatement: NA #unit statement for historic TLS data
+  ##    Reference Length data
   
   ## Part I stuff
   length_summary: NA
@@ -15,18 +34,54 @@ params:
   error_table: NA
   lengtherror_statements: NA
   
+  ## Part II stuff
+  sd_test: NA
+  sigmaHat_test: NA
+  
   ## MCS stuff
   expected_errors: NA
   expectederrors_summary: NA
   expectederror_plot: NA
   seed_value: NA
   nIt_mcs: NA
+  
+  ## Data summaries/Notes
+  notes: NA
 ---
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+
+
+```{r, echo=FALSE, results='asis'}
+if (!is.null(params$notes) && nchar(trimws(params$notes)) > 0) {
+  # 1. Escape special LaTeX characters first so they don't crash the PDF
+  # This handles: %, $, &, #, _, { }
+  safe_notes <- gsub("([#$%&_{}])", "\\\\\\1", params$notes)
+  
+  # 2. Convert manual line breaks (\n) into LaTeX paragraph breaks (\par)
+  safe_notes <- gsub("\n", "\\\\par\n", safe_notes)
+  
+  # 3. Render the block
+  cat("\n\\hrule\n") 
+  cat("\\vspace{5pt}\n")
+  cat("\\textbf{Report Notes:}\n")
+  
+  cat("\\begin{quote}\n")
+  cat("\\small\\ttfamily\n") # Small, monospaced font
+  cat(safe_notes)
+  cat("\n\\end{quote}\n")
+  
+  cat("\\hrule\n")
+  cat("\\vspace{10pt}\n")
+} else {
+  cat("\\textit{No notes provided.}")
+}
+```
+
+## SUMMARY
 ### Part I Summary
 `r params$length_summary`
 
@@ -37,6 +92,25 @@ if (!is.null(params$error_plot)) {
 }
 ```
 ### Part II Summary
+```{r, echo=FALSE, results='asis'}
+if (!is.null(params$sd_test)) {
+  # 1. Convert the HTML object to a character string
+  sdtest_string <- as.character(params$sd_test)
+  
+  # 2. Replace <br> tags with LaTeX line breaks
+  # We use quadruple backslashes because R escapes them for LaTeX
+  sdtest_string_clean <- gsub("<br\\s*/?>", "\\\\par\n", sdtest_string)
+  
+  # 3. Clean up any other potential HTML artifacts
+  sdtest_string_clean <- gsub("<.*?>", "", sdtest_string_clean) 
+  
+  # 4. Print to PDF
+  cat(sdtest_string_clean)
+}
+```
+
+
+
 `r params$expectederrors_summary`
 
 <!-- EXPECTED ERRORS FROM MCS -->
@@ -83,6 +157,34 @@ if (!is.null(params$expected_errors)) {
 These results were obtained from a Monte Carlo simulation using `r params$nIt_mcs` iterations and may be replicated 
 using the seed `r params$seed_value`.
 
-### Data Summaries
+### Current Data Summary
+#### TLS Data 
+* **filename:** `r params$filename_TLStest`
+* **nickname:** `r params$dataname_test`
+* **# of targets:** `r params$nT_test`
+* **# of positions:** `r params$nP_test`
+* **units:** `r params$TLS_UnitStatement`
 
-'`r params$dataname_test`' data read from file `r params$filename_TLStest`. Reference lengths corresponding to these data were read from file `r params$filename_reflengths`.
+#### Reference Lengths 
+* **filename:** `r params$filename_reflengths`
+* **units:** `r params$tapedata_summary`
+
+```{r, echo=FALSE, results='asis'}
+# Check if a filename exists for the historic data
+if (!is.null(params$filename_TLShist) && params$filename_TLShist != "") {
+  
+  cat("### Historic Data Summary\n")
+  cat("#### TLS Data\n")
+  
+  # We use a list format
+  cat("* **filename:**", params$filename_TLShist, "\n")
+  cat("* **nickname:**", params$dataname_base, "\n")
+  cat("* **# of targets:**", params$nT_base, "\n")
+  cat("* **# of positions:**", params$nP_base, "\n")
+  cat("* **units:**", params$historicTLS_UnitStatement, "\n")
+  # Add a final newline to separate this from whatever comes next
+  cat("\n")
+}
+```
+
+<!-- '`r params$dataname_test`' data read from file `r params$filename_TLStest`. Reference lengths corresponding to these data were read from file `r params$filename_reflengths`. -->

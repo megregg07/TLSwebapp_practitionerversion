@@ -147,20 +147,8 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
             numericInput("threshold_pct","Error specification (%)",value = 0.5, step = 0.01, min = 0.01)
           ),
           
-          
-        #h2("4. Historic Comparison"), 
-        #selectInput('partII_htest', "Compare the current data to a previous set of data?", choices = c('No', 'Yes')),
-        ## Conditional: if the hypothesis test is to be performed, the user now needs to upload more data
-        #conditionalPanel(
-        #  condition = "input.partII_htest == 'Yes'", 
-        #  h3("4a. Upload Historic TLS Data"),
-        #  fileInput('file_TLSbase', "Historic data", accept = c(".csv", ".txt")), 
-        #  div(style = "margin-top: -20px"),
-        #  textInput(inputId = "dataname_base",
-        #            label = "Historic Data Nickname:",
-        #            value = "Historic data"),
-        #  selectInput('historic_units','Historic TLS data units',choices=c('mm', 'meters', 'inches'))
-        #),
+        ## WHERE ERROR MESSAGE RELATING TO DUPLICATE FILES IS DISPLAYED
+        uiOutput("file_validation_display"),
         
         fluidRow(
           column(width = 6, 
@@ -264,45 +252,46 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                       ## DATA SUMMARY TAB - report # of Targets/Postions, and plots that check for bad targets
                       ##
                       tabPanel("Data Summary & Report", 
-                               h2("Download Report"),
-                               downloadButton("download_report", "Generate Report"),
+                               #h2("Download Report"),
+                               #downloadButton("download_report", "Generate Report"),
                                #h3("Data Summaries"),
-                               br(),
-                               #fluidRow(
-                              #   column(width = 6,
-                              #          uiOutput("summary_currentdata")
-                               #  ),
-                              #   column(width = 6,
-                                        # We wrap the conditionalPanel around the column or vice versa.
-                                        # Putting it inside ensures the 'Current' data stays on the left 
-                                        # even if the 'Historic' data is hidden.
-                               #         conditionalPanel(
-                              #            condition = "input.partII_htest == 'Yes'", 
-                              #            uiOutput("summary_historicdata")
-                              #          )
-                              #   )
-                              # ),
+                               #br(),
+                               # Display the two data summaries side by side, if applicable
                               div(style = "display: flex; justify-content: flex-start; gap: 50px;",
                                   div(style = "min-width: 250px;", 
-                                      uiOutput("summary_currentdata")
+                                      uiOutput("summary_currentdata"),
+                                      br(),
+                                      uiOutput("resPlot_container_test")
                                   ),
                                   conditionalPanel(
                                     condition = "input.partII_htest == 'Yes'",
                                     div(style = "min-width: 250px;", 
-                                        uiOutput("summary_historicdata")
+                                        uiOutput("summary_historicdata"),
+                                        br(),
+                                        uiOutput("resPlot_container_base")
                                     )
                                   )
+                              ), 
+                              br(),
+                              # --- ADDED NOTES SECTION HERE ---
+                              div(style = "max-width: 600px;", # Keeps the box from stretching too wide
+                                  textAreaInput(inputId = "report_notes", 
+                                                label = "Report Notes (Optional):", 
+                                                placeholder = "Enter details for your records", 
+                                                rows = 4, 
+                                                width = "100%")
                               ),
-                               br(),
+                              br(),
+                              # --------------------------------
+                              downloadButton("download_report", "Generate Report")
 
                                ## Now some plots to check for bad targets
-                               uiOutput("residualStatement"),
-                               plotOutput("resPlot_test", width = "600px", height = "600px"),
+                               #uiOutput("residualStatement"),
+                               #uiOutput("resPlot_container_test"),  ## This replaces 'plotOutput'
+                               #plotOutput("resPlot_test", width = "600px", height = "600px"),
                                ## Now report summary stuff for the Historic Data (if uploaded)
-                               conditionalPanel(condition = "input.partII_htest == 'Yes'",
-                                                h3("Historic Data Summary"),
-                                                textOutput("basedata_summary"),
-                                                plotOutput("resPlot_base", width = "600px", height = "600px"))
+                               #conditionalPanel(condition = "input.partII_htest == 'Yes'",
+                              #                  uiOutput("resPlot_container_base"))
                       )
           )
         ) # <--- MAIN PANEL ENDS
@@ -366,6 +355,59 @@ server <- function(input, output, session) {
     toggle("advanced_section", anim = TRUE)
   })
   
+  ##**************************
+  # --- CENTRAL VALIDATION ---
+  # This checks all file relationships before any data is read
+  file_error_message <- reactive({
+    # Core requirement: Current TLS and Current Tape must exist to even begin checking
+    if (is.null(input$file_TLStest) || is.null(input$filename_tapedata)) return(NULL)
+    
+    # 1. ALWAYS check Test vs Tape
+    if (input$file_TLStest$name == input$filename_tapedata$name) {
+      return("Error: TLS Data and Reference Lengths must be different files.")
+    }
+    
+    # Logic for Historic Data (Base)
+    if (!is.null(input$file_TLSbase)) {
+      # 2. Check Test vs Base
+      if (input$file_TLStest$name == input$file_TLSbase$name) {
+        return("Error: Current TLS Data and Historic TLS Data must be different files.")
+      }
+      # 3. Check Base vs Tape
+      if (input$file_TLSbase$name == input$filename_tapedata$name) {
+        return("Error: Historic TLS Data and Current Reference Lengths must be different files.")
+      }
+    }
+    
+    # Logic for Historic Reference Lengths
+    if (!is.null(input$filename_reflengths_hist)) {
+      # 5. Check Test vs Historic Reference Lengths
+      if (input$file_TLStest$name == input$filename_reflengths_hist$name) {
+        return("Error: Current TLS Data and Historic Reference Lengths must be different files.")
+      }
+      
+      # 4. Check Base vs Historic Reference Lengths (if Base exists)
+      if (!is.null(input$file_TLSbase)) {
+        if (input$file_TLSbase$name == input$filename_reflengths_hist$name) {
+          return("Error: Historic TLS Data and Historic Reference Lengths must be different files.")
+        }
+      }
+    }
+    
+    return(NULL) # No duplicates found
+  })
+  
+  ##################################################
+  ##**CHECK THAT THE USER HAS UPLOADED UNIQUE FILES*
+  output$file_validation_display <- renderUI({
+    msg <- file_error_message()
+    req(msg) # Only run if there is actually a message
+    
+    # Display a single, clean red error box
+    div(style = "color: #a94442; background-color: #f2dede; border: 1px solid #ebccd1; 
+               padding: 15px; border-radius: 4px; margin-bottom: 20px; font-weight: bold;",
+        icon("exclamation-circle"), " ", msg)
+  })
   
   ###########################################################
   ##***IMPORT THE DATA***
@@ -373,6 +415,9 @@ server <- function(input, output, session) {
   ##***Current data**
   ## IMPORT THE CURRENT TLS DATA (the data under test)
   data_test = reactive({
+    # This stops the reactive silently if there is a file error
+    req(is.null(file_error_message()), cancelOutput = TRUE)
+    
     if(is.null(input$file_TLStest)) {
       return(NULL)
     } else {
@@ -385,6 +430,9 @@ server <- function(input, output, session) {
   })
   ## IMPORT THE CURRENT REFERENCE VALUES ('tape data')
   Dtape = reactive({
+    # This stops the reactive silently if there is a file error
+    req(is.null(file_error_message()), cancelOutput = TRUE)
+    
     if(is.null(input$filename_tapedata)) {
       return(NULL)
     } else {
@@ -403,29 +451,31 @@ server <- function(input, output, session) {
   ##**Historic data**
   ##*
   ## IMPORT THE HISTORIC TLS DATA (baseline)
-  data_base = reactive({
-    if(is.null(input$file_TLSbase)) {
-      return(NULL)
-    } else {
-      ext = tools::file_ext(input$file_TLSbase$name)
-      data_base = switch(ext, csv = read.csv(input$file_TLSbase$datapath), 
-                         txt = read.table(input$file_TLSbase$datapath, header = FALSE), 
-                         validate("Invalid file; Please upload a .csv or .txt file"))
-      return(data_base)
-    }
+  data_base <- reactive({
+    # Only run if the file exists 
+    req(input$file_TLSbase)
+    # This stops the reactive silently if there is a file error
+    req(is.null(file_error_message()), cancelOutput = TRUE)
+    
+    ext <- tools::file_ext(input$file_TLSbase$name)
+    switch(ext, 
+           csv = read.csv(input$file_TLSbase$datapath), 
+           txt = read.table(input$file_TLSbase$datapath, header = FALSE), 
+           validate("Invalid file; Please upload a .csv or .txt file"))
   })
   
   ## IMPORT THE HISTORIC REFERENCE VALUES ('tape data)
   reflengths_hist = reactive({
-    if(is.null(input$filename_reflengths_hist)) {
-      return(NULL)
-    } else {
-      ext = tools::file_ext(input$filename_reflengths_hist$name)
-      reflengths_hist = switch(ext, csv = read.csv(input$filename_reflengths_hist$datapath), 
-                     txt = read.table(input$filename_reflengths_hist$datapath, header = TRUE), 
-                     validate("Invalid file; Please upload a .csv or .txt file"))
-      return(reflengths_hist)
-    }
+    req(input$filename_reflengths_hist)
+    # This stops the reactive silently if there is a file error
+    req(is.null(file_error_message()), cancelOutput = TRUE)
+
+    ext = tools::file_ext(input$filename_reflengths_hist$name)
+    reflengths_hist = switch(ext, csv = read.csv(input$filename_reflengths_hist$datapath), 
+                    txt = read.table(input$filename_reflengths_hist$datapath, header = TRUE), 
+                    validate("Invalid file; Please upload a .csv or .txt file"))
+    return(reflengths_hist)
+
   })
 
   
@@ -433,17 +483,30 @@ server <- function(input, output, session) {
   ## SOMETHING THAT WILL CHECK WHETHER THE USER WANTS TO SEE THE 'DATA ELLIPSE' PLOT (IF APPLICABLE)
   show_ellipse <- reactiveVal(FALSE)
   # Every time "Run Analysis" is clicked, hide the plot link again
-  observeEvent(input$runAnalysis, {
-    show_ellipse(FALSE)
-  })
+  observeEvent(input$runAnalysis, {show_ellipse(FALSE)  })
   # Listens for the link click (outside the main analysis)
-  observeEvent(input$view_plot_link, {
-    show_ellipse(TRUE)
-  })
+  observeEvent(input$view_plot_link, {show_ellipse(TRUE)})
   ## Link to hide the plot
-  observeEvent(input$hide_plot_link, {
-    show_ellipse(FALSE)
-  })
+  observeEvent(input$hide_plot_link, {show_ellipse(FALSE)})
+  
+  ## 
+  ## SOMETHING THAT WILL CHECK WHETHER THE USER WANTS TO SEE THE RESIDUAL PLOT (CURRENT DATA)
+  # --- Reactive Value ---
+  show_rp_current <- reactiveVal(FALSE)
+  # --- Observers ---
+  observeEvent(input$runAnalysis, { show_rp_current(FALSE) })
+  observeEvent(input$view_rp_current, { show_rp_current(TRUE) })
+  observeEvent(input$hide_rp_current, { show_rp_current(FALSE) })
+  
+  ## 
+  ## CHECK WHETHER THE USER WANTS TO SEE THE RESIDUAL PLOT (HISTORIC DATA)
+  # --- Reactive Value ---
+  show_rp_historic <- reactiveVal(FALSE)
+  # --- Observers ---
+  observeEvent(input$runAnalysis, { show_rp_historic(FALSE) })
+  observeEvent(input$view_rp_historic, { show_rp_historic(TRUE) })
+  observeEvent(input$hide_rp_historic, { show_rp_historic(FALSE) })
+  
   
 
   ## 
@@ -712,11 +775,11 @@ server <- function(input, output, session) {
     results_out$Rpretty_test <- create_pretty_R(results_out$R2, data_name = dataname_test)
 
     ## create the statements about the standard deviations in the angular/ranging residuals.
-    testdata_sd = round(sqrt(diag(round(results_out$SigmaHat2,3))),2)
+    results_out$testdata_sd = round(sqrt(diag(round(results_out$SigmaHat2,3))),2)
     results_out$testdata_SDstatements = HTML(
-      paste("The standard deviation in the azimuth angle residuals is", testdata_sd[1], "arcsec.<br>", 
-            "The standard deviation in the elevation angle residuals is", testdata_sd[2], "arcsec.<br>",
-            "The standard deviation in the ranging residuals is", testdata_sd[3], "mm."))
+      paste("The standard deviation in the azimuth angle residuals is", results_out$testdata_sd[1], "arcsec.<br>", 
+            "The standard deviation in the elevation angle residuals is", results_out$testdata_sd[2], "arcsec.<br>",
+            "The standard deviation in the ranging residuals is", results_out$testdata_sd[3], "mm."))
     
     ##*********************
     ##**PART II -- CONDITIONAL ON WHETHER HISTORICAL COMPARISON IS BEING DONE**
@@ -749,8 +812,7 @@ server <- function(input, output, session) {
       pval_clean = ifelse(p2_results$pvalue < 0.001, "<0.001", round(p2_results$pvalue,3))
       
       ## full statement on hypothesis test results
-      results_out$p2_interpretation = paste0("The statistical methodology detailed in <a href='https://doi.org/10.1111/1556-4029.70256' target='_blank'>Gregg et al. (2026)</a> 
-                                         comparing the Current and Historical spherical precision results in a p-value of ", pval_clean, ". ", p2_results$interpretation)  
+      results_out$p2_interpretation = paste0("The statistical methodology comparing the Current and Historical spherical precisions results in a p-value of ", pval_clean, ". ", p2_results$interpretation)  
                                         
     
       ## Step 4:
@@ -1303,23 +1365,101 @@ server <- function(input, output, session) {
       return(paste(all_results()$basedata_summary))
     })
     
-    ################################
-    ## CHECK FOR BAD TARGETS
-    ## 1) generate the lsit of plots
-    ## 2) plot the plots
+    ##################################################
+    ## RESIDUAL PLOTS -- CURRENT DATA
+    # --- Render the Plot UI Once ---
+    ## 1. THE UI CONTAINER (This handles the toggling)
+    output$resPlot_container_test <- renderUI({
+      req(all_results()$Rpretty_test)
+      tagList(
+        conditionalPanel(
+          condition = "output.show_rp_current_state == false",
+          actionLink("view_rp_current", "Residual plot (current data)")
+        ),
+        
+        conditionalPanel(
+          condition = "output.show_rp_current_state == true",
+          div(style = "margin-bottom: 10px;",
+              actionLink("hide_rp_current", "Hide residual plot", 
+                         icon = icon("times"), 
+                         style = "color: #d9534f; font-size: 0.9em;")
+          ),
+          HTML(paste("Angular residuals are reported in arcseconds. Ranging residuals are reported in mm.")),
+          plotOutput("resPlot_test", width = "600px", height = "600px")
+        )
+      )
+    })
+    
+    ## 2. THE BRIDGE (Tells JavaScript the state of your R reactiveVal)
+    output$show_rp_current_state <- reactive({ show_rp_current() })
+    outputOptions(output, "show_rp_current_state", suspendWhenHidden = FALSE)
+    
+    ## 3. THE PLOT RENDERER 
+    output$resPlot_test <- renderPlot({
+      # Use req() to ensure data exists before trying to plot
+      req(all_results()$Rpretty_test)
+      
+      # Optional: only calculate the plot if the user actually wants to see it
+      # This saves processing power
+      req(show_rp_current())
+      
+      plot_my_residuals(all_results()$Rpretty_test)
+    }, res = 96)
+    
+    ##################################################
+    ## RESIDUAL PLOTS -- HISTORIC DATA
+    # --- Render the Plot UI Once ---
+    ## 1. THE UI CONTAINER (This handles the toggling)
+    output$resPlot_container_base <- renderUI({
+      req(all_results()$Rpretty_base)
+      tagList(
+        conditionalPanel(
+          condition = "output.show_rp_historic_state == false",
+          actionLink("view_rp_historic", "Residual plot (historic data)")
+        ),
+        
+        conditionalPanel(
+          condition = "output.show_rp_historic_state == true",
+          div(style = "margin-bottom: 10px;",
+              actionLink("hide_rp_historic", "Hide residual plot", 
+                         icon = icon("times"), 
+                         style = "color: #d9534f; font-size: 0.9em;")
+          ),
+          HTML(paste("Angular residuals are reported in arcseconds. Ranging residuals are reported in mm.")),
+          plotOutput("resPlot_base", width = "600px", height = "600px")
+        )
+      )
+    })
+    ## 2. THE BRIDGE (Tells JavaScript the state of your R reactiveVal)
+    output$show_rp_historic_state <- reactive({ show_rp_historic() })
+    outputOptions(output, "show_rp_historic_state", suspendWhenHidden = FALSE)
+    
+    ## 3. THE PLOT RENDERER 
     output$resPlot_base <- renderPlot({
-      if(is.null(all_results()$Rpretty_base)) {
-        return(NULL)
-      }
+      # Use req() to ensure data exists before trying to plot
+      req(all_results()$Rpretty_base)
+      
+      # Optional: only calculate the plot if the user actually wants to see it
+      # This saves processing power
+      req(show_rp_historic())
+      
       plot_my_residuals(all_results()$Rpretty_base)
     }, res = 96)
     
-    output$resPlot_test <- renderPlot({
-      if(is.null(all_results()$Rpretty_test)) {
-        return(NULL)
-      }
-      plot_my_residuals(all_results()$Rpretty_test)
-    })
+    
+#    output$resPlot_base <- renderPlot({
+#      if(is.null(all_results()$Rpretty_base)) {
+#        return(NULL)
+#      }
+#      plot_my_residuals(all_results()$Rpretty_base)
+ #   }, res = 96)
+    
+#    output$resPlot_test <- renderPlot({
+#      if(is.null(all_results()$Rpretty_test)) {
+#        return(NULL)
+#      }
+#      plot_my_residuals(all_results()$Rpretty_test)
+#    })
     
     output$residualStatement <- renderUI({
       req(all_results())
@@ -1346,12 +1486,24 @@ server <- function(input, output, session) {
         # You can pull these from input$ or reactive variables
         params <- list(
           report_title = "TLS WebApp Results",
-          ## DATA NAMES
-          ##   file names
+          
+          ## CURRENT DATA META STUFF
+          ##  TLS data
           filename_TLStest = all_results()$filename_TLStest,   ## fn for TLS data under test
-          filename_reflengths = all_results()$filename_reflengths, ## fn for reference lengths
-          ##   user-specified names
           dataname_test = all_results()$dataname_test, ## the user-specified name of the TLS data under test
+          nT_test = all_results()$nT_test,                         ## number of Targets in Current TLS data
+          nP_test = all_results()$nP_test,                         ## number of Positions in Current TLS data
+          TLS_UnitStatement = all_results()$TLS_UnitStatement,     ## unit statement for current TLS data
+          ##  Reference lengths
+          filename_reflengths = all_results()$filename_reflengths, ## fn for reference lengths
+          tapedata_summary = all_results()$tapedata_summary,       ## unit statement for current reference lengths
+          ##
+          ## HISTORIC DATA META STUFF
+          filename_TLShist = all_results()$filename_TLShist,       ## fn for historic TLS data
+          dataname_base = all_results()$dataname_base,             ## user-specified nickname for historic TLS data
+          nT_base = all_results()$nT_base,                         ## number of Targets in Historic TLS data
+          nP_base = all_results()$nP_base,                         ## number of positions in Historic TLS data
+          historicTLS_UnitStatement = all_results()$historicTLS_UnitStatement, ## unit statement for historic TLS data
           
           
           ## PART I RESULTS
@@ -1361,13 +1513,19 @@ server <- function(input, output, session) {
           lengtherror_statements = all_results()$A_F_LengthError_statements,
           
           ## PART II RESULTS
+          sd_test = all_results()$testdata_SDstatements,
+          sigmaHat_test = all_results()$sigmaHat2,
+          
           expectederrors_summary = all_results()$expectederrors_summary,
           expected_errors = all_results()$expected_errors,
           
           ## MCS RESULTS
           expectederror_plot = expectederror_plot_reactive(),
           seed_value = all_results()$seed_value,
-          nIt_mcs = all_results()$nIt_mcs
+          nIt_mcs = all_results()$nIt_mcs,
+          
+          ## DATA SUMMARIES/NOTES
+          notes = input$report_notes
         )
         
         # Knit the document
@@ -1383,14 +1541,22 @@ server <- function(input, output, session) {
   ##**Information
   ##*
   output$info <- renderUI({
-    HTML(paste("This web app implements the required calculations 
-    to perform the OSAC CSIR `Terrestrial Laser Scanner Performance Assessment Test Procedure'. 
-    This test procedure consists of two parts:<br><br>", 
-    "Part I: Test of the instrument's target-to-target accuracy;<br>", 
-    "Part II: Statement of the instrument's spherical precision.<br><br>", 
-    "An optional addition to Part II allows the user to test if the instrument's spherical precision has significantly changed from a historic data set.<br><br>",
+    # We wrap the entire text string in a div with 60% width
+    div(style = "width: 60%; line-height: 1.6;",
+      HTML(paste("This web app implements the required calculations 
+      to perform the OSAC CSIR `Terrestrial Laser Scanner Performance Assessment Test Procedure'. 
+      This test procedure consists of two parts:<br><br>", 
+      "Part I: Test of the instrument's target-to-target accuracy;<br>", 
+      "Part II: Statement of the instrument's spherical precision.<br>", 
+      "<br>",
+      "If a historic comparison is made, a <a href='https://doi.org/10.1111/1556-4029.70256' target='_blank'>statistical procedure</a> 
+      is applied to test if the instrument's spherical precision has significantly changed. If there is a statistically significant
+      difference in the spherical precision, the effect of the current instrument precision on the length measurements is estimated using a Monte Carlo simulation.<br><br>",
     
-    "The user manual for this webapp can be downloaded [here]. Additional information can be found in the OSAC standard, [this paper], and [this other paper]."))
+      "The user manual for this webapp can be downloaded [here]. Additional information can be found in the OSAC standard, 
+      [this paper], and [this other paper]."
+      ))
+    )
   })
   
 }
