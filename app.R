@@ -181,13 +181,13 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
           width = 8, ## set the width = 8, so the total width of the sidebar + mainpanel is equal to 12
           tabsetPanel(
             id = 'results_tabs',
-            selected = "Results - Current Data", 
+            selected = "Part I - Accuracy", 
                       br(),
                       tabPanel("Information", 
                                uiOutput("info")),
                       ## prepare the output space for "Part I - Analysis" tab 
-                      tabPanel("Results - Current Data", 
-                               h2("Part I - Accuracy"), 
+                      tabPanel("Part I - Accuracy", 
+                               h2("Accuracy - Current Data"), 
                                ## Summary statement
                                uiOutput("length_summary"), 
                                ## Summary table -- if threshold given and no values exceed, then there will be no table 
@@ -206,22 +206,19 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                 uiOutput("statement_E"),
                                 uiOutput("statement_F"), 
                                 br(), 
-                               
-                                h2("Part II - Precision"),
-                               uiOutput("testdata_SDstatements"), 
-                               br(), 
-                               uiOutput("p2_interpretation"), 
-                               uiOutput("ellipse_container"),
-                               br(),
-                               ## statement about the expected error range from MCS
-                               uiOutput("EER_explanation"),
-                               br(),
-                               ## ** put the MCS results here
-                               uiOutput("expectederrors_summary"), 
-                               #verbatimTextOutput("expectederrors_subtable"),
-                               uiOutput("expectederrors_subtable"),
-                               br(),
-                               plotOutput("expectederrorPlot", width = "700px", height = "350px")
+                               ## IF HISTORIC COMPARISON IS MADE, REPORT VALUES HERE
+                               conditionalPanel(
+                                 condition = "input.partII_htest =='Yes'",
+                                 h2("Accuracy - Historic Data"),
+                                 ## Historical Part I accuracy statement
+                                 uiOutput("length_summary_hist"), 
+                                 ## Summary table -- if threshold given and no values exceed, then there will be no table 
+                                 uiOutput("lengtherrors_subtable_hist"),
+                                 br(),
+                                 ## Historical Part I accuracy plot
+                                 plotOutput("errorPlot_hist", width = "700px", height = "350px"),
+                                 br(),
+                               )
                                 #verbatimTextOutput("errorTable_F")
                                ),
                       ## prepare the output space for "Part II - Analysis" tab 
@@ -247,11 +244,42 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                       ## 
                       ## Historic comparison Will appear here by Server code
                       ##
+                      tabPanel("Part II - Precision", 
+                               h2("Precision - Current Data"), 
+                               uiOutput("testdata_SDstatements"), 
+                               br(),
+                               
+                               # Everything inside this panel only appears if 'Yes' is selected
+                               conditionalPanel(
+                                 condition = "input.partII_htest == 'Yes'",
+                                 ## report SDs from Historic data
+                                 h2("Precision - Historic Data"), 
+                                 uiOutput("basedata_SDstatements"),
+                                 h2("Precision Comparison"),
+                                 ## Report the results of the hypothesis test
+                                 uiOutput("p2_interpretation"), 
+                                 br(),
+                                 ## data ellipse plot
+                                 uiOutput("ellipse_container"), 
+                                 ##
+                                 ## IN CASE THE HYPOTEHSIS TEST REJECTS H0...
+                                 ## statement about the expected error range from MCS
+                                 uiOutput("MCS_results_container"),
+                                 #uiOutput("EER_explanation"),
+                                 #br(),
+                                 ## ** put the MCS results here
+                                 #uiOutput("expectederrors_summary"), 
+                                 #verbatimTextOutput("expectederrors_subtable"),
+                                 #uiOutput("expectederrors_subtable"),
+                                 #br(),
+                                 #plotOutput("expectederrorPlot", width = "700px", height = "350px")
+                               ),
+                               ),
 
                       ## 
                       ## DATA SUMMARY TAB - report # of Targets/Postions, and plots that check for bad targets
                       ##
-                      tabPanel("Data Summary & Report", 
+                      tabPanel("Metadata & Report", 
                                #h2("Download Report"),
                                #downloadButton("download_report", "Generate Report"),
                                #h3("Data Summaries"),
@@ -307,28 +335,28 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
 server <- function(input, output, session) {
   
   ## DETERMINE IF WE NEED THE HISTORIC COMPARISON TAB
-  observeEvent(input$partII_htest, {
-    if (input$partII_htest == "Yes") {
-      insertTab(
-        inputId = "results_tabs",
-        tabPanel(
-          title = "Historic Comparison",
-          value = "historic_tab", # This ID is used to remove it later
-          h2("Accuracy Comparison"),
+  #observeEvent(input$partII_htest, {
+  #  if (input$partII_htest == "Yes") {
+  #    insertTab(
+  #      inputId = "results_tabs",
+  #      tabPanel(
+  #        title = "Historic Comparison",
+  #        value = "historic_tab", # This ID is used to remove it later
+  #        h2("Accuracy Comparison"),
           ## Historical Part I accuracy statement
-          uiOutput("length_summary_hist"), 
-          ## Summary table -- if threshold given and no values exceed, then there will be no table 
-          uiOutput("lengtherrors_subtable_hist"),
-          br(),
-          ## Historical Part I accuracy plot
-          plotOutput("errorPlot_hist", width = "700px", height = "350px"),
-          br(),
+  #        uiOutput("length_summary_hist"), 
+  #        ## Summary table -- if threshold given and no values exceed, then there will be no table 
+  #        uiOutput("lengtherrors_subtable_hist"),
+  #        br(),
+  #        ## Historical Part I accuracy plot
+  #        plotOutput("errorPlot_hist", width = "700px", height = "350px"),
+  #        br(),
           ## Historical precision comparison
-          h2("Precision Comparison"), 
-          uiOutput("basedata_SDstatements"),
-          br(),
+  #        h2("Precision Comparison"), 
+  #        uiOutput("basedata_SDstatements"),
+  #        br(),
           #uiOutput("p2_interpretation"), 
-          uiOutput("ellipse_container")
+  #        uiOutput("ellipse_container")
           #br(),
           ## statement about the expected error range from MCS
           #uiOutput("EER_explanation"),
@@ -340,15 +368,15 @@ server <- function(input, output, session) {
           #br(),
           #plotOutput("expectederrorPlot", width = "700px", height = "350px")
           #plotOutput("ellipsePlot", width = "600px", height = "600px")
-        ),
-        target = "Results - Current Data", # Place it after this tab
-        position = "after"
-      )
-    } else {
+    #    ),
+    #    target = "Results - Current Data", # Place it after this tab
+    #    position = "after"
+    #  )
+    #} else {
       # This removes the tab if the user selects "No"
-      removeTab(inputId = "results_tabs", target = "historic_tab")
-    }
-  })
+    #  removeTab(inputId = "results_tabs", target = "historic_tab")
+    #}
+  #})
   
   ## OBSERVE IF WE NEED THE ADVANCED SETTINGS OPTION
   observeEvent(input$toggle_adv, {
@@ -526,9 +554,10 @@ server <- function(input, output, session) {
     ## USE THIS TO DEBUG
     #browser()
     
-    ##*
-    ##**READ IN THE ADVANCED SETTINGS PARAMETERS**
-    ##*
+    ## DETERMINE WHETHER A HISTORIC COMPARISON IS BEING MADE
+    results_out$partII_htest <- input$partII_htest  ## either 'Yes' or 'No'
+    
+    ## READ IN THE ADVANCED SETTINGS PARAMETERS**
     results_out$alpha <- input$alpha
     results_out$seed_value <- input$seed_value
     results_out$nIt_mcs <- input$nIt_mcs
@@ -659,6 +688,7 @@ server <- function(input, output, session) {
       A_F_LengthError_list_hist = lengthErrors(Dtape = reflengths_hist, Zc = data1, Zc_names = data1_targetList)
       results_out$A_F_LengthError_table_hist = A_F_LengthError_list_hist$table
       ##    e) Do all the stuff to calculate/report Part I-type reporting but for the historic data
+      results_out$A_F_lengthError_statements_hist = A_F_LengthError_list_hist$statements
       ##
       ## If a threshold was included, count how many absolute length errors are larger
       ## than the threshold, and report the values that were, if applicable
@@ -668,13 +698,14 @@ server <- function(input, output, session) {
         ## the Statement and the table will change, depending on whether the user wants the results
         ## reported as length errors or as % error...
         results_out$lengtherrors_summary_hist = switch(input$report_as, 
-                                                  'Length error (mm)' = "No error specification was provided. Displaying the three largest historic length errors.",
-                                                  'Percentage of reference length' = "No error specification was provided. Displaying the three largest historic percent errors."
+                                                  'Length error (mm)' = "No error specification was provided. Displaying the three largest historic length errors. Units are mm.",
+                                                  'Percentage of reference length' = "No error specification was provided. Displaying the three largest historic percent errors. Units are mm."
         )
         results_out$lengtherrors_subtable_hist = switch(input$report_as,
                                                    'Length error (mm)' = (results_out$A_F_LengthError_table_hist %>% arrange(desc(abs(Error))))[1:3,], 
                                                    'Percentage of reference length' = (results_out$A_F_LengthError_table_hist %>% arrange(desc(abs(PctError))))[1:3,]                                    
         )
+        results_out$lengtherrors_statement_hist_clean = results_out$lengtherrors_summary_hist
       } else{
         ## First make a generic version of the lengthError table so I can feed it into my 'statements' function
         gtab_PartI_hist <- results_out$A_F_LengthError_table_hist %>% 
@@ -686,6 +717,8 @@ server <- function(input, output, session) {
                                                     report_as = results_out$error_reporting, section = "PartI")
         results_out$lengtherrors_summary_hist = paste("<b>Historic data:</b>", lengtherrors_exceed_hist$statement)
         results_out$lengtherrors_subtable_hist = lengtherrors_exceed_hist$table
+        ## make a clean statement for punting to the PDF document
+        results_out$lengtherrors_statement_hist_clean = lengtherrors_exceed_hist$statement
       }
       
       }
@@ -735,8 +768,8 @@ server <- function(input, output, session) {
       ## the Statement and the table will change, depending on whether the user wants the results
       ## reported as length errors or as % error...
       results_out$lengtherrors_summary = switch(input$report_as, 
-             'Length error (mm)' = "No error specification was provided. Displaying the three largest length errors.",
-             'Percentage of reference length' = "No error specification was provided. Displaying the three largest percent errors."
+             'Length error (mm)' = "No error specification was provided. Displaying the three largest length errors. Units are mm.",
+             'Percentage of reference length' = "No error specification was provided. Displaying the three largest percent errors. Units are mm."
       )
       results_out$lengtherrors_subtable = switch(input$report_as,
               'Length error (mm)' = (results_out$A_F_LengthError_table %>% arrange(desc(abs(Error))))[1:3,], 
@@ -799,6 +832,8 @@ server <- function(input, output, session) {
         paste("The historical standard deviation in the azimuth angle residuals is", basedata_sd[1], "arcsec.<br>", 
               "The historical standard deviation in the elevation angle residuals is", basedata_sd[2], "arcsec.<br>", 
               "The historical standard deviation in the ranging residuals is", basedata_sd[3], "mm."))
+      ## send this vector to the results, so it can be called in the report
+      results_out$basedata_sd = basedata_sd
       
       ## Step 3:
       ## Perform the hypothesis test
@@ -806,7 +841,7 @@ server <- function(input, output, session) {
       incProgress(4/7, detail = "Part II analysis")
       p2_results = TLS_cov_check(results_out$X1, results_out$X2, conf.level = 1-results_out$alpha)
       results_out$test_results = p2_results$results
-      results_out$p2_conclusion = p2_results$conclusion
+      #results_out$p2_conclusion = p2_results$conclusion
       #results_out$p2_interpretation = p2_results$interpretation
       results_out$pvalue = p2_results$pvalue
       pval_clean = ifelse(p2_results$pvalue < 0.001, "<0.001", round(p2_results$pvalue,3))
@@ -814,7 +849,6 @@ server <- function(input, output, session) {
       ## full statement on hypothesis test results
       results_out$p2_interpretation = paste0("The statistical methodology comparing the Current and Historical spherical precisions results in a p-value of ", pval_clean, ". ", p2_results$interpretation)  
                                         
-    
       ## Step 4:
       ## Combine the data in preparation for plotting the data ellipses
       Xcomb <- rbind(data.frame(results_out$X1, dataset = dataname_base), 
@@ -870,8 +904,8 @@ server <- function(input, output, session) {
         ## the Statement and the table will change, depending on whether the user wants the results
         ## reported as length errors or as % error...
         results_out$expectederrors_summary = switch(input$report_as, 
-                                                    'Length error (mm)' = "No error specification was provided. Displaying the three largest maximum expected length errors.",
-                                                    'Percentage of reference length' = "No error specification was provided. Displaying the three largest maximum expected errors as a percent of reference length."
+                                                    'Length error (mm)' = "No error specification was provided. Displaying the three largest maximum expected length errors. Units are mm.",
+                                                    'Percentage of reference length' = "No error specification was provided. Displaying the three largest maximum expected errors as a percent of reference length. Units are mm."
         )
         results_out$expectederrors_subtable = switch(input$report_as,
                                                      'Length error (mm)' = (results_out$expected_errors %>% arrange(desc(abs(EER))))[1:3,], 
@@ -1159,12 +1193,12 @@ server <- function(input, output, session) {
   
 
   ## The string of text stating the hypothesis test conclusion
-  output$p2_conclusion <- renderText({
-    if(is.null(all_results()$p2_conclusion)) {
-      return(NULL)
-    }
-    return(all_results()$p2_conclusion)
-  })
+  #output$p2_conclusion <- renderText({
+  #  if(is.null(all_results()$p2_conclusion)) {
+  #    return(NULL)
+  #  }
+  #  return(all_results()$p2_conclusion)
+  #})
   
   output$p2_interpretation <- renderUI({
     if(is.null(all_results()$p2_interpretation)) {
@@ -1237,41 +1271,70 @@ server <- function(input, output, session) {
   ## State how many, if any, expected errors exceed the threshold
   ## then
   ## Plot the 'expected errors' in the 24 lengths, derived from the MCS
+  output$MCS_results_container <- renderUI({
+    # 1. Centralized check: If no MCS data, show nothing
+    req(all_results()$expected_errors)
+    tagList(
+      h2("Effect of the Current Precision on Length Errors"),
+      # Inlined EER Explanation
+      tags$p("Since there is a statistically significance change in the precision, the effect of the instrument’s 
+           current spherical precision on the length measurements has been 
+           estimated using a Monte Carlo simulation. The “expected error range” (EER) value computed from 
+           this simulation is the range of error, for a given length and position, that is expected in the 
+           instrument’s measurement due to the current spherical precision.",
+             style = "max-width: 50%; line-height: 1.5; text-align: justify;"),
+      br(),
+      
+      # Inlined Summary Statement
+      # We pull the value directly from all_results()
+      all_results()$expectederrors_summary,
+      
+      # Conditional Table Placeholder
+      # We only show the verbatim box if there are rows to show
+      if (nrow(all_results()$expectederrors_subtable) > 0) {
+        verbatimTextOutput("actual_table_content_EE")
+      },
+      br(),
+      # Plot Placeholder
+      plotOutput("expectederrorPlot", width = "700px", height = "350px")
+    )
+  })
   
   ## Explain what the EER values are (this is always shown, if the MCS simulation was run)
-  output$EER_explanation <- renderUI({
+  #output$EER_explanation <- renderUI({
     # Logic check
-    if ( !is.null(all_results()$expected_errors)) {
+  #  if ( !is.null(all_results()$expected_errors)) {
       # Use tags$p, tags$span, or just HTML text
-      return(tags$p("The effect of the instrument’s current spherical precision on the length measurements has been 
-                    estimated using a Monte Carlo simulation. The “expected error range” (EER) value computed from 
-                    this simulation is the range of error, for a given length and position, that is expected in the 
-                    instrument’s measurement due to the current spherical precision.",
-                    style = "max-width: 50%; line-height: 1.5; text-align: justify;"))
-    } else {
+  #    return(tags$p("Since there is a statistically significance change in the precision, he effect of the instrument’s 
+  #                  current spherical precision on the length measurements has been 
+  #                  estimated using a Monte Carlo simulation. The “expected error range” (EER) value computed from 
+  #                  this simulation is the range of error, for a given length and position, that is expected in the 
+  #                  instrument’s measurement due to the current spherical precision.",
+  #                  style = "max-width: 50%; line-height: 1.5; text-align: justify;"))
+  #  } else {
       # Returning NULL ensures the UI element is completely empty/removed
-      return(NULL)
-    }
-  })
+  #    return(NULL)
+  #  }
+  #})
 
   ## Overall statement "x out of y length errors are greater than *threshold*"
-  output$expectederrors_summary <- renderUI({
-    if(is.null(all_results()$expectederrors_summary)) {
-      return(NULL)}
-    return(all_results()$expectederrors_summary)
-  })
+ # output$expectederrors_summary <- renderUI({
+#    if(is.null(all_results()$expectederrors_summary)) {
+#      return(NULL)}
+#    return(all_results()$expectederrors_summary)
+#  })
 
   ## Creating a 'conditional' table for the Expected Errors
   # 1. The Dynamic UI Container
-  output$expectederrors_subtable <- renderUI({
-    # Check if the table has data
-    if ( !is.null(all_results()$expected_errors) && nrow(all_results()$expectederrors_subtable) > 0) {
+#  output$expectederrors_subtable <- renderUI({
+#    # Check if the table has data
+#    if ( !is.null(all_results()$expected_errors) && nrow(all_results()$expectederrors_subtable) > 0) {
       # Create the placeholder with a unique ID string
-      verbatimTextOutput("actual_table_content_EE")
-    } else {
-      return(NULL)
-    }
-  })
+#      verbatimTextOutput("actual_table_content_EE")
+#    } else {
+#      return(NULL)
+#    }
+#  })
   # 2. The Actual Content Provider
   output$actual_table_content_EE <- renderPrint({
     # This sends the actual data to the placeholder created above
@@ -1300,12 +1363,12 @@ server <- function(input, output, session) {
   }, res = 96)
   
   ###############################
-  ## Data Summaries
+  ## Metadata Summaries
   output$summary_currentdata <- renderUI({
     req(all_results()$filename_TLStest)
     # Use HTML to recognize line breaks
     HTML(paste0(
-      "<h3>Current data summary:</h3>",
+      "<h3>Current data metadata:</h3>",
       "<h4>TLS data</h4>",
       "<div style='margin-left: 20px;'>", # Start indentation
       "<b>filename:</b> ", all_results()$filename_TLStest, "<br/>",
@@ -1326,7 +1389,7 @@ server <- function(input, output, session) {
     req(all_results()$filename_TLShist)
     # Use HTML to recognize line breaks
     HTML(paste0(
-      "<h3>Historic data summary:</h3>",
+      "<h3>Historic data metadata:</h3>",
       "<h4>TLS data</h4>",
       "<div style='margin-left: 20px;'>", # Start indentation
       "<b>filename:</b> ", all_results()$filename_TLShist, "<br/>",
@@ -1394,16 +1457,23 @@ server <- function(input, output, session) {
     output$show_rp_current_state <- reactive({ show_rp_current() })
     outputOptions(output, "show_rp_current_state", suspendWhenHidden = FALSE)
     
+    ## CREATE PLOT AS REACTIVE OBJECT
+    # Create the plot as a reactive object
+    res_plot_reactive_test <- reactive({
+      # Use req to ensure data exists
+      req(all_results()$Rpretty_test)
+      # Call the plotting function
+      plot_my_residuals(all_results()$Rpretty_test)
+    })
+    
     ## 3. THE PLOT RENDERER 
     output$resPlot_test <- renderPlot({
-      # Use req() to ensure data exists before trying to plot
-      req(all_results()$Rpretty_test)
-      
       # Optional: only calculate the plot if the user actually wants to see it
       # This saves processing power
       req(show_rp_current())
-      
-      plot_my_residuals(all_results()$Rpretty_test)
+      ## call the reactive plot
+      res_plot_reactive_test()
+      #plot_my_residuals(all_results()$Rpretty_test)
     }, res = 96)
     
     ##################################################
@@ -1434,16 +1504,25 @@ server <- function(input, output, session) {
     output$show_rp_historic_state <- reactive({ show_rp_historic() })
     outputOptions(output, "show_rp_historic_state", suspendWhenHidden = FALSE)
     
+    ## CREATE PLOT AS REACTIVE OBJECT
+    # Create the plot as a reactive object
+    res_plot_reactive_base <- reactive({
+      # Check if data exists
+      if(is.null(all_results()$Rpretty_base)) {
+        return(NULL)
+      }
+      # Call the plotting function
+      plot_my_residuals(all_results()$Rpretty_base)
+    })
+    
     ## 3. THE PLOT RENDERER 
     output$resPlot_base <- renderPlot({
-      # Use req() to ensure data exists before trying to plot
-      req(all_results()$Rpretty_base)
-      
       # Optional: only calculate the plot if the user actually wants to see it
       # This saves processing power
       req(show_rp_historic())
-      
-      plot_my_residuals(all_results()$Rpretty_base)
+      # Call the reactive expression
+      res_plot_reactive_base()
+      #plot_my_residuals(all_results()$Rpretty_base)
     }, res = 96)
     
     
@@ -1478,9 +1557,33 @@ server <- function(input, output, session) {
       },
       # 2. Define the content generation
       content = function(file) {
+        # 1. Start the progress bar
+        withProgress(message = 'Generating Report', 
+                     detail = 'This may take a few moments...', 
+                     value = 0, {
+                       
+          # 2. Increment the bar to show it started
+          incProgress(0.3, detail = "Gathering data and plots...")
+        
         # Copy the report file to a temporary directory
         tempReport <- file.path(tempdir(), "report.Rmd")
         file.copy("report.Rmd", tempReport, overwrite = TRUE)
+        
+        # --- NEW PLOT GENERATION STEP ---
+        # 1. Create a temporary file path for the ellipse plot
+        ellipse_plot_path <- file.path(tempdir(), "temp_ellipse_plot.png")
+        
+        # 2. If the data exists, generate and save the plot using your function
+        if (!is.null(all_results()$Xcomb)) {
+          p_ellipse <- my_ellipse_plot(all_results()$Xcomb)
+          
+          # Use ggsave to "bake" the Greek letters into a high-res image
+          # 300 DPI is standard for professional print quality
+          ggplot2::ggsave(ellipse_plot_path, plot = p_ellipse, 
+                          width = 8, height = 8, units = "in", dpi = 300)
+        } else {
+          ellipse_plot_path <- NULL
+        }
         
         # Set up parameters to pass to Rmd document
         # You can pull these from input$ or reactive variables
@@ -1488,6 +1591,7 @@ server <- function(input, output, session) {
           report_title = "TLS WebApp Results",
           
           ## CURRENT DATA META STUFF
+          historic_comp = all_results()$partII_htest,               ## "Yes" or "No", indicating whether historic comp was performed
           ##  TLS data
           filename_TLStest = all_results()$filename_TLStest,   ## fn for TLS data under test
           dataname_test = all_results()$dataname_test, ## the user-specified name of the TLS data under test
@@ -1499,40 +1603,68 @@ server <- function(input, output, session) {
           tapedata_summary = all_results()$tapedata_summary,       ## unit statement for current reference lengths
           ##
           ## HISTORIC DATA META STUFF
+          ##   TLS data
           filename_TLShist = all_results()$filename_TLShist,       ## fn for historic TLS data
           dataname_base = all_results()$dataname_base,             ## user-specified nickname for historic TLS data
           nT_base = all_results()$nT_base,                         ## number of Targets in Historic TLS data
           nP_base = all_results()$nP_base,                         ## number of positions in Historic TLS data
           historicTLS_UnitStatement = all_results()$historicTLS_UnitStatement, ## unit statement for historic TLS data
+          ##  Reference lengths
+          filename_reflengths_hist = all_results()$filename_reflengths_hist, ## fn for Historic reference lengths
+          reflengths_hist_summary = all_results()$reflengths_hist_summary,   ## unit statement for Historic reference lengths
           
           
           ## PART I RESULTS
+          ##   ACCURACY - CURRENT DATA
           length_summary = all_results()$lengtherrors_summary,
-          error_plot = error_plot_reactive(), # The new plot reactive
-          error_table = all_results()$A_F_LengthError_table, 
-          lengtherror_statements = all_results()$A_F_LengthError_statements,
+          error_plot = error_plot_reactive(),                      # The new plot reactive
+          error_table = all_results()$A_F_LengthError_table,       ## The full table of errors
+          error_table_sub = all_results()$lengtherrors_subtable,   ## The subset table (which may be NA)
+          lengtherror_statements = all_results()$A_F_LengthError_statements, ## Details about the 6 Reference Lengths 
+          ##   ACCURACY - HISTORIC DATA
+          length_summary_hist = all_results()$lengtherrors_statement_hist_clean, ## Historic accuracy statement
+          error_table_hist = all_results()$A_F_LengthError_table_hist,     ## Complete table of Historic length errors
+          error_table_sub_hist = all_results()$lengtherrors_subtable_hist, ## Historic accuracy subtable
+          errorPlot_hist = error_plot_reactive_hist(),              ## Historic Accuracy plot
+          lengtherror_statements_hist = all_results()$A_F_lengthError_statements_hist, ## Details about the 6 Historic reference lengths
           
           ## PART II RESULTS
-          sd_test = all_results()$testdata_SDstatements,
-          sigmaHat_test = all_results()$sigmaHat2,
-          
-          expectederrors_summary = all_results()$expectederrors_summary,
-          expected_errors = all_results()$expected_errors,
-          
-          ## MCS RESULTS
+          ##   PRECISION - CURRENT DATA
+          sd_test = all_results()$testdata_SDstatements,           ## sd in the residuals
+          sigmaHat_test = all_results()$SigmaHat2,                 ## Estimated covariance matrix from Current data
+          sigmaHat_hist = all_results()$SigmaHat1,                 ## Estimated covariance matrix from Historic data
+          ##   PRECISION - HISTORIC DATA
+          basedata_sd = all_results()$basedata_sd,                 ## Historic std deviations in residuals
+          ##   PRECISION COMPARISON
+          p2_interpretation = all_results()$p2_interpretation,     ## interpretation of the hypothesis test
+          Htest_details = all_results()$test_results,              ## details from the hypothesis test
+          ellipse_plot_path = ellipse_plot_path,                   ## pass the path to the saved ellipse plot
+          ##   EFFECT OF CURRENT PRECISION ON LENGTH ERRORS (MCS RESULTS)
+          expectederrors_summary = all_results()$expectederrors_summary, ## statement about how many EER values exceed threshold
           expectederror_plot = expectederror_plot_reactive(),
           seed_value = all_results()$seed_value,
           nIt_mcs = all_results()$nIt_mcs,
+          expected_errors = all_results()$expected_errors,
+          
+
           
           ## DATA SUMMARIES/NOTES
-          notes = input$report_notes
+          notes = input$report_notes,                     ## User-given notes
+          resPlot_current = res_plot_reactive_test(),     ## Residual plot (Current data)
+          resPlot_hist = res_plot_reactive_base()         ## Residual plot (Historic data)
         )
+        
+        # 3. Increment again before the "heavy lifting"
+        incProgress(0.3, detail = "Rendering PDF (This may take a few moments)...")
         
         # Knit the document
         rmarkdown::render(tempReport, output_file = file,
                           params = params,
                           envir = new.env(parent = globalenv())
         )
+        # 4. Final step
+        incProgress(0.4, detail = "Done!")
+        })
       }
     )
     

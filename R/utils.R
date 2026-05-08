@@ -303,24 +303,28 @@ my_ellipse_plot <- function(Xdat, r = 2, col_list = c("#1F77B4", "#FF7F0E")) {
   
   if(ncol(Xdat)==(2+1)) {
     p1 <- ggplot(Xdat, aes(x = phi, y = theta, color = dataset)) + geom_point(pch = 20, size = 2) +
-      labs(x = "\u03c6 residual (arcseconds)", y = "\u03b8 residual (arcseconds)") +
+      #labs(x =  "\u03c6 residual (arc)", y = "\u03b8 residual (arc)") +
+      labs(x = expression(paste(phi, " residual (arcsec)")), 
+           y = expression(paste(theta, " residual (arcsec)"))) +
       scale_color_manual(values = col_list)+
       guides(color=guide_legend(title="Data")) +
       theme(legend.position = "top") +
       geom_path(data = ellipse1_1, color = col_list[1]) +
       geom_path(data = ellipse1_2, color = col_list[2]) +
-      theme(text = element_text(size = 18))
+      theme(text = element_text(size = 14))
     
     ellipsePlot <- p1
   } else{
     ## same first plot, but suppress the legend
     p1 <- ggplot(Xdat, aes(x = phi, y = theta, color = dataset)) + geom_point(pch = 20, size = 2) +
-      labs(x = "\u03c6 residual (arcseconds)", y = "\u03b8 residual (arcseconds)") +
+      #labs(x = "\u03c6 residual (arcsec)", y = "\u03b8 residual (arcsec)") +
+      labs(x = expression(paste(phi, " residual (arcsec)")), 
+           y = expression(paste(theta, " residual (arcsec)"))) +
       scale_color_manual(values = col_list)+
       guides(color = "none") +
       geom_path(data = ellipse1_1, color = col_list[1]) +
       geom_path(data = ellipse1_2, color = col_list[2]) +
-      theme(text = element_text(size = 18))
+      theme(text = element_text(size = 14))
     ## and create the other two plots
     ##
     ## Panel 2: Theta vs. r (rows/columns 1&3)
@@ -328,25 +332,29 @@ my_ellipse_plot <- function(Xdat, r = 2, col_list = c("#1F77B4", "#FF7F0E")) {
     ellipse2_2 <- data.frame(radius*(unit.circle %*% chol(sigmaHat2)[c(1,3), c(1,3)]))
     
     p2 <- ggplot(Xdat, aes(x = r, y = theta, color = dataset)) + geom_point(pch = 20, size = 2) +
-      labs(x = "r residual (mm)", y = "\u03b8 residual (arcseconds)") +
+      #labs(x = "r residual (mm)", y = "\u03b8 residual (arcsec)") +
+      labs(x = "r residual (mm)", 
+           y = expression(paste(theta, " residual (arcsec)"))) +
       scale_color_manual(values = col_list) +
       guides(color = "none") +
       geom_path(data = ellipse2_1, color = col_list[1]) +
       geom_path(data = ellipse2_2, color = col_list[2]) +
-      theme(text = element_text(size = 18))
+      theme(text = element_text(size = 14))
     
     ## Panel 3: Phi vs. r (rows/columns 2&3)
     ellipse3_1 <- data.frame(radius*(unit.circle %*% chol(sigmaHat1)[c(2,3), c(2,3)]))
     ellipse3_2 <- data.frame(radius*(unit.circle %*% chol(sigmaHat2)[c(2,3), c(2,3)]))
     
     p3 <- ggplot(Xdat, aes(x = r, y = phi, color = dataset)) + geom_point(pch = 20, size = 2) +
-      labs(x = "r residual (mm)", y = "\u03c6 residual (arcseconds)") +
+      #labs(x = "r residual (mm)", y = "\u03c6 residual (arcsec)") +
+      labs(x = "r residual (mm)", 
+           y = expression(paste(phi, " residual (arcsec)"))) +
       scale_color_manual(values = col_list) +
       guides(color=guide_legend(title="Data", ncol = 1)) +
       geom_path(data = ellipse3_1, color = col_list[1]) +
       geom_path(data = ellipse3_2, color = col_list[2]) +
       theme(legend.position=c(-0.85, .85)) +
-      theme(text = element_text(size = 18))
+      theme(text = element_text(size = 14))
     
     ellipsePlot <- (p1 + p2) / (plot_spacer() + p3 )
   }
