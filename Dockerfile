@@ -1,44 +1,40 @@
-FROM rocker/shiny:4.5.1
+FROM openanalytics/r-ver:4.5.2
 
-RUN apt-get update -y
-RUN apt-get install libglu1-mesa -y
-#RUN apt-get install make -y
-RUN apt-get install libnlopt-dev -y
+# Force the container to use UTF-8 encoding so it recognizes Unicode characters
+ENV LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
 
-RUN apt-get update -y && apt-get install -y \
-    texlive-latex-recommended \
-    texlive-fonts-recommended \
-    texlive-latex-extra
-    
-WORKDIR /srv/shiny-server/
+RUN echo "\noptions(shiny.port=3838, shiny.host='0.0.0.0')" >> /usr/local/lib/R/etc/Rprofile.site
 
-RUN R -e "install.packages('pbkrtest',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('car',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('lme4',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('shiny',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('shinythemes',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('ICSNP',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('heplots',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('dplyr',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('geometry',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('MASS',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('ggplot2',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('tidyr',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('tools',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('patchwork',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('Cairo',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('stringr',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('RColorBrewer',repos='http://cran.rstudio.com/')"
-RUN R -e "install.packages('shinyjs',repos='http://cran.rstudio.com/')"
+# System libraries (Added fonts-dejavu, fonts-liberation, and fontconfig)
+RUN apt-get update && apt-get install --no-install-recommends -y \
+pandoc \
+libcairo2-dev \
+libxt-dev \
+libssl-dev \
+libcurl4-openssl-dev \
+libxml2-dev \
+libglu1-mesa-dev \
+libgl1-mesa-dev \
+chromium \
+texinfo \
+texlive-latex-base \
+texlive-latex-recommended \
+texlive-latex-extra \
+texlive-fonts-recommended \
+texlive-extra-utils \
+fonts-dejavu \
+fonts-liberation \
+fontconfig \
+&& rm -rf /var/lib/apt/lists/*
 
+# Add all required R packages
+RUN R -q -e "options(warn=2); install.packages(c('shiny', 'shinythemes', 'shinyjs', 'DT', 'ICSNP', 'heplots', 'dplyr', 'geometry', 'MASS', 'ggplot2', 'tidyr', 'patchwork', 'Cairo', 'stringr', 'RColorBrewer', 'kableExtra'))"
 
-# still need to debug command below
-#RUN R -e "tinytex::install_tinytex(force=TRUE)"
-
-
-COPY . /srv/shiny-server
-
-RUN chmod -R 775 /srv/shiny-server
-RUN chgrp -R shiny /srv/shiny-server
+# Install R code
+COPY . /app
+WORKDIR /app
 
 EXPOSE 3838
+
+CMD ["R", "-q", "-e", "shiny::runApp('/app')"]

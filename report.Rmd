@@ -3,81 +3,106 @@ title: "`r params$report_title`"
 date: "`r format(Sys.Date(), '%B %d, %Y')`"
 output: 
   pdf_document:
+    extra_dependencies: ["float", "tcolorbox", "xcolor"]
 header-includes:
-#  - \usepackage{tcolorbox}
+  - \usepackage{tcolorbox}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{array}
+  - \definecolor{profGreen}{HTML}{2E6F40}
+  - \definecolor{profGreenBg}{HTML}{F4F8F5}
+  - \definecolor{profOrange}{HTML}{D97706}
+  - \definecolor{profOrangeBg}{HTML}{FFFBEB}
+  - \definecolor{profRed}{HTML}{B91C1C}
+  - \definecolor{profRedBg}{HTML}{FEF2F2}
 params:
   report_title: NA
   
-  # Misc. stuff (file names/ user-specified names;)
-  ## CURRENT DATA
-  ##   TLS data - meta
-  filename_TLStest: NA          # fn TLS data under test
-  dataname_test: NA             # user-specified nickname for TLS data under test
-  nT_test: NA                   # number of targets in Current TLS data
-  nP_test: NA                   # number of positions in Current TLS data
-  TLS_UnitStatement: NA         # unit statement for Current TLS data
-  ##    Reference Length data
-  filename_reflengths: NA       # fn Reference Lengths
-  tapedata_summary: NA          # units for Reference Lengths (current)
-  ##
-  ## HISTORIC DATA
-  ##    TLS data
-  filename_TLShist: NA          # fn for historic TLS data
-  dataname_base: NA             # user-specified nickname for Historic TLS data
-  nT_base: NA                   # number of targets in Historic TLS data
-  nP_base: NA                   # number of positions in Historic TLS data
-  historicTLS_UnitStatement: NA # unit statement for historic TLS data
-  ##    Reference Length data
-  filename_reflengths_hist: NA  # fn for Historic reference lengths
-  reflengths_hist_summary: NA   # unit statement for Historic reference lengths
+  # Assessment Context
+  assessment_type: NA
+  overall_label: NA
+  overall_desc: NA
+  overall_action: NA
+  partI_status: NA
+  partII_htest: NA
+  partII_eer: NA
   
-  ## 
-  ## RESULTS
-  ##    Part I stuff
+  # DATA UNDER TEST (Baseline if Baseline Track; Verification if Verification Track)
+  has_baseline_comp: NA      
+  filename_TLS_test: NA      
+  dataname_test: NA          
+  nT_test: NA                
+  nP_test: NA                
+  TLS_UnitStatement: NA      
+  filename_reflengths: NA    
+  tapedata_summary: NA       
+  
+  # BASELINE COMPARISON DATA (Only populated/used during Verification track)
+  filename_TLS_baseline: NA       
+  dataname_baseline: NA           
+  nT_baseline: NA                 
+  nP_baseline: NA                 
+  baseline_TLS_UnitStatement: NA  
+  filename_reflengths_baseline: NA
+  reflengths_baseline_summary: NA 
+  
+  # PART I RESULTS (ACCURACY)
   length_summary: NA
-  error_plot: NA                # Plot of the 24 length errors (Current data)
-  error_table: NA               # Complete table of 24 length errors (current data)
-  error_table_sub: NA           # subset table of length errors (current data) -- values that exceed threshold or top-3 values
+  error_plot: NA                
+  error_table: NA                
+  error_table_sub: NA            
   lengtherror_statements: NA
-  ##    Part II stuff
+  mpe_value: NA
+  unc_ref: NA
+  
+  # Baseline Reference Accuracy (Verification track only)
+  length_summary_baseline: NA   
+  error_table_baseline: NA      
+  error_table_sub_baseline: NA  
+  error_plot_baseline: NA        
+  lengtherror_statements_baseline: NA
+  
+  # PART II RESULTS (PRECISION)
   sd_test: NA
+  sigmaHat_test: NA               
+  sigmaHat_baseline: NA           
+  baseline_data_sd: NA            
+  
+  # Precision Comparison & Simulations
   p2_interpretation: NA
-  Htest_details: NA               # Details from the hypothesis test
-  sigmaHat_test: NA               # Est. covariance matrix from Current data
-  sigmaHat_hist: NA               # Est. covariance matrix from Historic data
-  
-  ## HISTORIC COMPARISON (IF APPLICABLE)
-  historic_comp: NA               # Binary 'Yes'/'No', indicating whether historic data was included
-  ##    Part I
-  length_summary_hist: NA         # summary statement ("x out of k historic length errors are...")
-  error_table_hist: NA            # complete table of Historic length errors
-  error_table_sub_hist: NA        # subtable of historic length errors
-  errorPlot_hist: NA              # Historic Accuracy plot
-  lengtherror_statements_hist: NA # details about the 6 Historic reference lengths
-  ##    Part II
-  basedata_sd: NA                 # Historic std deviations in residuals (vector of length 3)
-  #Xcomb: NA                      # The data that will be used to render the data ellipse plot
-  ellipse_plot_path: NA           # Path to the saved ellipse plot
-  
-  
-  ## MCS stuff
-  expected_errors: NA
+  Htest_details: NA               
+  ellipse_plot_path: NA           
   expectederrors_summary: NA
-  expectederror_plot: NA          # Plot of EER values obtained from MCS
-  seed_value: NA                  # random seed used for the MCS
-  nIt_mcs: NA                     # number of MCS iterations (default = 3000)
+  expectederror_plot: NA          
+  seed_value: NA                  
+  nIt_mcs: NA                     
+  expected_errors: NA
+  alpha: NA
   
-  ## Data summaries/Notes
-  notes: NA                       # User-given notes
-  resPlot_current: NA             # Residual plot Current data
-  resPlot_hist: NA                # Residual plot Historic data
+  # Residual Plots
+  notes: NA                        
+  resPlot_current: NA              
+  resPlot_baseline: NA            
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(knitr)
+
+# Global helper to map any compliance status string to its professional colors
+get_status_colors <- function(status_string) {
+  clean_status <- tolower(trimws(status_string))
+  
+  if (grepl("non-compliant", clean_status, fixed = TRUE)) {
+    list(frame = "profRed", back = "profRedBg")
+  } else if (grepl("marginally", clean_status, fixed = TRUE)) {
+    list(frame = "profOrange", back = "profOrangeBg")
+  } else {
+    # Default fallback for Compliant states
+    list(frame = "profGreen", back = "profGreenBg")
+  }
+}
 ```
-
-
 
 ```{r, echo=FALSE, results='asis'}
 if (!is.null(params$notes) && nchar(trimws(params$notes)) > 0) {
@@ -112,164 +137,234 @@ if (!is.null(params$notes) && nchar(trimws(params$notes)) > 0) {
 }
 ```
 
-# SUMMARY
-## Part I - Accuracy
-### Accuracy - Current Data
-<!-- Statement of Part I errors (e.g., 3 out of 24 exceed...) -->
-`r params$length_summary`
-<!-- Print the subtable of errors, if necessary -->
+# REPORT SUMMARY
+
 ```{r, echo = FALSE, results = 'asis'}
-library(knitr)
-library(kableExtra)
-# 1. Check if the object is actually a data frame and has rows
+col_frame <- "profGreen"
+col_back  <- "profGreenBg"
+outcome_str <- tolower(trimws(params$overall_label))
+
+if (grepl("non-compliant", outcome_str, fixed = TRUE)) {
+  col_frame <- "profRed"
+  col_back  <- "profRedBg"
+} else if (grepl("marginally compliant", outcome_str, fixed = TRUE)) {
+  col_frame <- "profOrange"
+  col_back  <- "profOrangeBg"
+}
+
+# Standardize the assessment type string to uppercase
+asmt_type <- toupper(trimws(params$assessment_type))
+# If the parameter is just "BASELINE" or "VERIFICATION", append "ASSESSMENT"
+if (!grepl("ASSESSMENT", asmt_type, fixed = TRUE)) {
+  asmt_type <- paste(asmt_type, "ASSESSMENT")}
+# Dynamically combine the type and the outcome string
+box_title <- sprintf("%s - %s", asmt_type, params$overall_label)
+
+cat(sprintf("\\begin{tcolorbox}[colframe=%s, colback=%s, title=\\textbf{%s}, sharp corners=west, arc=4pt, boxrule=2pt, left=12pt, right=12pt]", 
+            col_frame, col_back, box_title))
+cat("\n\\begin{itemize}\n")
+cat(sprintf("  \\item \\textbf{Part I Accuracy Evaluation:} %s\n", params$partI_status))
+cat(sprintf("  \\item \\textbf{Part II Spherical Precision Hypothesis Test:} %s\n", params$partII_htest))
+cat(sprintf("  \\item \\textbf{Part II Expected Error Range (EER) Simulation:} %s\n", params$partII_eer))
+cat("\\end{itemize}\n")
+cat("\\vspace{5pt}\n")
+cat(sprintf("\\noindent\\textbf{Finding Statement:} %s\\par\n", params$overall_desc))
+cat("\\vspace{5pt}\n")
+cat(sprintf("\\noindent\\textbf{Recommendation:} %s\n", params$overall_action))
+cat("\\end{tcolorbox}\n")
+```
+
+\vspace{10pt}
+\noindent\rule{\textwidth}{0.4pt}
+
+# EVALUATION DETAILS
+
+## Part I - Target-to-Target Accuracy
+
+```{r, echo=FALSE, results='asis'}
+# Fetch the colors from the global helper
+colors <- get_status_colors(params$partI_status)
+
+# Format the display strings for the threshold and uncertainty values
+# (Ensure 'unc_ref' and 'mpe_value' are passed into your params list from Shiny)
+mpe_display <- if (!is.null(params$mpe_value)) paste(params$mpe_value, "mm") else "[Not Specified]"
+unc_ref_display <- if (!is.null(params$unc_ref)) paste(params$unc_ref, "mm") else "[Not Specified]"
+
+desc_text <- if (params$partI_status == "COMPLIANT") {
+  sprintf("All 24 length errors are less than the specified MPE of %s. Instrument accuracy is within specifications.", mpe_display)
+} else {
+  sprintf("At least one of the 24 length errors exceeds the specified MPE of %s. Instrument accuracy does not meet specifications.", mpe_display)
+}
+
+# Render the box with the explicit evaluation metrics cleanly stacked
+cat(sprintf("\\begin{tcolorbox}[colframe=%s, colback=%s, sharp corners, boxrule=1pt, left=10pt, right=10pt, top=8pt, bottom=8pt]", 
+            colors$frame, colors$back))
+
+cat(sprintf("\\textbf{Part I Status Evaluation: %s}\\par\\vspace{4pt}\n", params$partI_status))
+cat(sprintf("\\noindent\\small\\textbf{Evaluation Threshold (MPE):} %s\\par\\vspace{2pt}\n", mpe_display))
+cat(sprintf("\\noindent\\small\\textbf{Reference Length Uncertainty:} %s\\par\\vspace{4pt}\n", unc_ref_display))
+cat(sprintf("\\noindent\\small\\textbf{Analysis Finding:} %s\n", desc_text))
+
+cat("\\end{tcolorbox}\n")
+cat("\\vspace{5pt}\n")
+# Replicate the Shiny app warning logic inside the PDF report
+if (!is.null(params$unc_ref) && params$unc_ref < 1) {
+  cat("\\vspace{4pt}\n")
+  cat("\\begin{tcolorbox}[colframe=profOrange, colback=profOrangeBg, sharp corners, boxrule=1pt, left=10pt, right=10pt, top=6pt, bottom=6pt]\n")
+  cat("\\small\\textbf{Documentation Required:} You will need formal documentation to support using a reference length uncertainty value this low.\n")
+  cat("\\end{tcolorbox}\n")
+}
+```
+
+```{r, echo = FALSE, results = 'asis'}
+## display any errors that exceed the MPE, if applicable
 if (is.data.frame(params$error_table_sub) && nrow(params$error_table_sub) > 0) {
   cat("Units in table are mm.\n")
-  # 2. Use print() because results = 'asis' requires explicit output
   print(knitr::kable(params$error_table_sub, 
-                    caption = "Length errors in Current data that exceed the given specification.",  
+                     caption = "Length errors that exceed the given MPE",  
                      booktabs = TRUE))
-  # 3. Add a couple of newlines to keep the LaTeX compiler happy
   cat("\n\n") 
-} else {
-  cat("")
 }
 ```
 
-<!-- PART I ERROR PLOT -->
-```{r, echo=FALSE, fig.width=7, fig.height=3.25, fig.align='center', out.width="70%", fig.pos='!h', fig.cap="Length errors - Current data"}
-if (!is.null(params$error_plot)) {
-  params$error_plot
-}
-```
-### Accuracy - Historic Data
-<!-- If no historic objects are present, print 'No Historic Comparison was made -->
-``` {r, echo=FALSE, results='asis'}
-if(params$historic_comp=='No') {
-  cat("No historic comparison was made.")
-} 
-```
 
-<!-- Historic Accuracy summary statement -->
+
+
+
+
+## Part II - Spherical Precision
+
 ```{r, echo=FALSE, results='asis'}
-if (!is.null(params$length_summary_hist)) {
-  # Use ** for bold and cat() to print the raw text
-  cat(params$length_summary_hist)
-  
-  # Add two newlines to ensure a proper paragraph break
-  cat("\n\n")
-}
-```
-<!-- Historic Accuracy subtable -->
-```{r, echo = FALSE, results = 'asis'}
-# 1. Check if the object is actually a data frame and has rows
-if (is.data.frame(params$error_table_sub_hist) && nrow(params$error_table_sub_hist) > 0) {
-  
-  cat("Units in table are mm.\n")
-  # 2. Use print() because results = 'asis' requires explicit output
-  print(knitr::kable(params$error_table_sub_hist, 
-                     caption = "Length errors in the Historic data that exceed the given specification.",  
-                     #format = "latex", 
-                     booktabs = TRUE))
-  # 3. Add a couple of newlines to keep the LaTeX compiler happy
-  cat("\n\n") 
+# 1. Standardize incoming parameter strings
+h_status <- toupper(trimws(params$partII_htest))
+e_status <- toupper(trimws(params$partII_eer))
+
+# 2. Determine the overall color profile based on the worst-case sub-status
+if (e_status == "NON-COMPLIANT") {
+  # Critical failure safeguard: Red box
+  colors <- get_status_colors("NON-COMPLIANT")
+} else if (h_status == "NON-COMPLIANT") {
+  # Your rule: Hypothesis Test is Non-Compliant -> Orange box
+  colors <- get_status_colors("MARGINALLY COMPLIANT")
+} else if (h_status == "N/A") {
+  # Baseline track fallback -> Gray box
+  colors <- list(frame = "gray!60", back = "gray!5")
 } else {
-  cat("")
+  # Your rule: Hypothesis Test is Compliant -> Green box
+  colors <- get_status_colors("COMPLIANT")
 }
-```
-<!-- If it exists, plot the historic Accuracy plot -->
-<!-- PART I ERROR PLOT -->
-```{r, echo=FALSE, fig.width=7, fig.height=3.25, fig.align='center', out.width="70%", fig.pos='!h', fig.cap="Length errors - Historic data"}
-if (!is.null(params$errorPlot_hist)) {
-  params$errorPlot_hist
+
+# 3. Map out the descriptive narrative text for the Hypothesis Test
+h_desc <- if (h_status == "COMPLIANT") {
+  "There has not been a statistically significant change in instrument precision."
+} else if (h_status == "NON-COMPLIANT") {
+  "A statistically significant change in the instrument's spherical precision has been detected."
+} else {
+  "Part II has no compliance assessment during a Baseline Evaluation. Only the standard deviation in the spherical residuals are reported."
+}
+
+# 4. Map out the descriptive narrative text for the Monte Carlo EER Simulation
+e_desc <- if (e_status == "COMPLIANT") {
+  sprintf("All 24 EER values are less than the specified MPE of %s.", mpe_display)
+} else if (e_status == "NON-COMPLIANT") {
+  sprintf("At least one of the 24 EER values exceeds the specified MPE of %s.", mpe_display)
+} else {
+  "No EER simulation was required."
+}
+
+# 5. Render the structured sub-assessment container
+cat(sprintf("\\begin{tcolorbox}[colframe=%s, colback=%s, sharp corners, boxrule=1pt, left=10pt, right=10pt, top=8pt, bottom=8pt]", 
+            colors$frame, colors$back))
+
+cat("\\textbf{Part II Spherical Precision Evaluation}\\par\\vspace{5pt}\n")
+
+cat(sprintf("\\noindent\\small\\textbf{Hypothesis Test Status:} %s\\par\\vspace{1pt}\n", h_status))
+cat(sprintf("\\noindent\\small\\textbf{Test Finding:} %s\\par\\vspace{6pt}\n", h_desc))
+
+cat(sprintf("\\noindent\\small\\textbf{Expected Error Range (EER) Simulation:} %s\\par\\vspace{1pt}\n", e_status))
+cat(sprintf("\\noindent\\small\\textbf{Simulation Finding:} %s\n", e_desc))
+
+cat("\\end{tcolorbox}\n")
+cat("\\vspace{5pt}\n")
+
+# Give warning if alpha was changed from 0.01
+if (!is.null(params$alpha) && params$alpha != 0.01) {
+  cat("\\vspace{4pt}\n")
+  cat("\\begin{tcolorbox}[colframe=profOrange, colback=profOrangeBg, sharp corners, boxrule=1pt, left=10pt, right=10pt, top=6pt, bottom=6pt]\n")
+  cat("\\small\\textbf{Notification:} Statistical significance threshold changed from default value of 0.01.\n")
+  cat("\\end{tcolorbox}\n")
 }
 ```
 
 
-## Part II - Precision
-### Precision - Current Data
-<!-- PART II: state the standard deviations -->
+#### Precision - `r params$dataname_test`
+
 ```{r, echo=FALSE, results='asis'}
 if (!is.null(params$sd_test)) {
-  # 1. Convert the HTML object to a character string
+  cat("\n\n")
   sdtest_string <- as.character(params$sd_test)
-  # 2. Replace <br> tags with LaTeX line breaks
-  # We use quadruple backslashes because R escapes them for LaTeX
   sdtest_string_clean <- gsub("<br\\s*/?>", "\\\\par\n", sdtest_string)
-  # 3. Clean up any other potential HTML artifacts
   sdtest_string_clean <- gsub("<.*?>", "", sdtest_string_clean) 
-  # 4. Print to PDF
   cat(sdtest_string_clean)
   cat("\n\n\\par\n\n")
 }
 ```
-### Precision -- Historic Data
-``` {r, echo=FALSE, results='asis'}
-if(params$historic_comp=='No') {
-  cat("No historic comparison was made.")
-} 
-```
-<!-- Historical standard deviations -->
-```{r, echo=FALSE, results='asis'}
-if (params$historic_comp == "Yes" && !is.null(params$basedata_sd)) {
-  cat("The historical standard deviation in the azimuth angle residuals is ", params$basedata_sd[1],
-      " arcsec.\\par\n", sep = "")
-  cat("The historical standard deviation in the elevation angle residuals is ", params$basedata_sd[2],
-      " arcsec.\\par\n", sep = "")
-  cat("The historical standard deviation in the ranging residuals is ", params$basedata_sd[3],
-      " mm\\par\n", sep = "")
 
+
+```{r, echo=FALSE, results='asis'}
+if (params$has_baseline_comp == "Yes" && !is.null(params$baseline_data_sd)) {
+  cat("### Precision - ", params$dataname_baseline, "\n\n", sep ="")
+  cat("The standard deviation in the azimuth angle residuals in the baseline dataset is ", params$baseline_data_sd[1], " arcsec.\\par\n", sep = "")
+  cat("The standard deviation in the elevation angle residuals in the baseline dataset is ", params$baseline_data_sd[2], " arcsec.\\par\n", sep = "")
+  cat("The historical standard deviation in the ranging residuals in the baseline dataset is ", params$baseline_data_sd[3], " mm\\par\n", sep = "")
   cat("\n\n")
 }
 ```
-<!-- State the results of the hypothesis test, if applicable -->
+
 ```{r, echo=FALSE, results='asis'}
-if (!is.null(params$p2_interpretation)) {
-  cat("### Precision Comparison\n\n")
+if (params$has_baseline_comp == "Yes" && !is.null(params$p2_interpretation)) {
+  cat("#### Precision Comparison Analysis\n\n")
   cat(params$p2_interpretation)
-  # Adding a newline ensures the next part of your report 
-  # doesn't start on the same line
   cat("\n\n")
 }
 ```
 
-<!-- If the hypothesis test was significant, show the results of the MCS -->
-<!-- EXPECTED ERRORS FROM MCS -->
 ```{r, echo=FALSE, results='asis'}
-if(!is.null(params$expectederrors_summary)) {
-  cat("### Effect of Current Precision on Length Errors\n\n")
-## statement about what the EER values are
-  cat("Since there is a statistically significance change in the precision, the effect of the instrument’s current spherical precision on the length measurements has been estimated using a Monte Carlo simulation. The “expected error range” (EER) value computed from this simulation is the range of error, for a given length and position, that is expected in the instrument’s measurement due to the current spherical precision.")
-  cat("\n\n")
-  ## summary of EER values
+if(params$has_baseline_comp == "Yes" && !is.null(params$expectederrors_summary)) {
+  cat("#### Effect of Current Precision State on Target Dimensions\n\n")
+  cat("Since there is a statistically significant change in the precision, the effect of the instrument’s current spherical precision on the length measurements has been estimated using a Monte Carlo simulation. The “expected error range” (EER) value computed from this simulation is the range of error, for a given length and position, that is expected in the instrument’s measurement due to the current spherical precision.\n\n")
   cat(params$expectederrors_summary)
   cat("\n\n")
 }
 ```
-<!-- PLOT OF EXPECTED ERROR RANGE VALUES FROM MCS -->
-```{r, echo=FALSE, fig.width=8, fig.height=3.75, fig.align='center', out.width="80%", fig.cap="Expected error ranges under Current spherical precision"}
-if (!is.null(params$expectederror_plot)) {
-  params$expectederror_plot
-}
-```
 
-<!-- END THE 'SUMMARY' RESULTS -->
-<!-- Draw horizontal line -->
+
 \noindent\rule{\textwidth}{0.4pt}
 \clearpage
 
-## APPENDIX: DETAILED RESULTS
+# APPENDIX: DETAILED RESULTS
 
-### Part I - Complete Table of Errors (Current data)
-<!-- 1. 'params$error_table' is the data you sent from the app-->
-<!-- 2. 'knitr::kable()' turns that data into a pretty table for PDF-->
-```{r, echo=FALSE}
+## Part I: Target-to-Target Accuracy 
+
+### Part I: Plot of Length Errors - `r params$dataname_test`
+```{r, echo=FALSE, fig.width=7, fig.height=3.25, fig.align='center', out.width="75%", fig.pos='H', fig.cap="Target-to-Target Length Errors"}
+if (!is.null(params$error_plot)) {
+  params$error_plot
+}
+```
+
+### Part I: Complete Table of Length Errors - `r params$dataname_test` (units are mm)
+```{r, echo=FALSE, results='asis'}
 if (!is.null(params$error_table)) {
   knitr::kable(params$error_table, 
-               caption = "Part I Length Errors (Current data)",
+               caption = paste("All 24 Length Errors -", params$dataname_test),
                booktabs = TRUE) 
-} 
+}
 ```
-### Part I - Details on the six lengths and their reference values (Current data)
+
+\vspace{10pt}
+
+### Part I: Designated Lengths and their Reference Values - `r params$dataname_test`
 ```{r, echo=FALSE, results='asis'}
 if (!is.null(params$lengtherror_statements)) {
   for (item in params$lengtherror_statements$statement) {
@@ -278,132 +373,142 @@ if (!is.null(params$lengtherror_statements)) {
   cat("\n\n")
 }
 ```
-<!-- HISTORIC LENGTH ERRORS (TABLE)-->
-```{r, echo=FALSE, results='asis'}
-if (!is.null(params$error_table_hist)) {
-  # This will now render as a proper Markdown header in the document font
-  cat("\n#### Historic Accuracy - Complete table of Historic length errors\n\n")
-  
-  # results='asis' requires print() for kable to show up
-  print(knitr::kable(params$error_table_hist, 
-               caption = "Length errors (Historic data)",
-               booktabs = TRUE)) 
+
+```{r, echo=FALSE, results='asis', fig.width=7, fig.height=3.25, fig.align='center', out.width="75%", fig.pos='H', fig.cap="Target-to-Target Length Errors - Baseline data"}
+if (params$has_baseline_comp == 'Yes' && !is.null(params$error_plot_baseline)) {
+  cat("### Part I: Plot of Length Errors - Baseline data\n\n")
+  print(params$error_plot_baseline)
+}
+```
+
+```{r, echo = FALSE, results = 'asis'}
+## display any errors that exceed the MPE, if applicable
+if (params$has_baseline_comp == 'Yes' && is.data.frame(params$error_table_sub_baseline) && nrow(params$error_table_sub_baseline) > 0) {
+  cat("Units in table are mm.\n")
+  print(knitr::kable(params$error_table_sub_baseline, 
+                     caption = "Part I: Baseline length errors that exceed the MPE",  
+                     booktabs = TRUE))
+  cat("\n\n") 
 }
 ```
 
 ```{r, echo=FALSE, results='asis'}
-if (!is.null(params$lengtherror_statements_hist)) {
-  cat("### Part I - Details on the six lengths and their reference values (Historic data)\n\n")
-  for (item in params$lengtherror_statements_hist$statement) {
+if (params$has_baseline_comp == "Yes" && !is.null(params$error_table_baseline)) {
+  cat("\n### Part I: Complete Table of Length Errors - Baseline data (units are mm)\n\n")
+  print(knitr::kable(params$error_table_baseline, 
+                     caption = paste("All 24 Length Errors -", params$dataname_baseline),
+                     booktabs = TRUE))
+  
+  
+}
+```
+
+```{r, echo=FALSE, results='asis'}
+if (params$has_baseline_comp == "Yes" && !is.null(params$lengtherror_statements_baseline)) {
+  cat("\n### Part I: Designated Lengths and their Reference Values - Baseline data \n\n")
+  for (item in params$lengtherror_statements_baseline$statement) {
     cat("* ", item, "\n")
   }
   cat("\n\n")
 }
 ```
 
-### Current Precision - Estimated covariance matrix
-<!-- COVARIANCE MATRIX (CURRENT DATA) -- always present-->
+\vspace{10pt}
+
+## Part II: Spherical Precision 
+### Part II: Estimated covariance matrix (`r params$dataname_test`)
 ```{r, echo=FALSE}
-# This chunk prints the object into a code box (the R console look)
 if (!is.null(params$sigmaHat_test)) {
   print(round(params$sigmaHat_test,3))
 }
 ```
-<!-- COVARIANCE MATRIX (HISTORIC DATA) -- ONLY PRESENT IF HIST COMP WAS MADE-->
-```{r, echo=FALSE, results='asis'}
-# This chunk sends RAW text to the PDF to create a heading
-if (!is.null(params$sigmaHat_hist)) {
-  cat("#### Historic Precision - Estimated covariance matrix\n\n")
-}
-```
-```{r, echo=FALSE}
-# This chunk prints the object into a code box (the R console look)
-if (!is.null(params$sigmaHat_hist)) {
-  print(round(params$sigmaHat_hist,3))
-}
-```
-**Coordinate Definitions:**
 
+```{r, echo=FALSE, results='asis'}
+if (params$has_baseline_comp == "Yes" && !is.null(params$sigmaHat_baseline)) {
+  cat("### Part II: Estimated Covariance Matrix (Baseline data)\n\n")
+  
+  # Manually wrap the output in a monospace code fence block
+  cat("```\n")
+  print(round(params$sigmaHat_baseline, 3))
+  cat("```\n\n")
+}
+```
+
+
+\vspace{5pt}
+\noindent\textbf{Coordinate Definitions:}
 \begin{verse}
 theta = azimuth angle (arcsec) \\
 phi = elevation angle (arcsec) \\
 r = ranging direction (mm)
 \end{verse}
 
-<!-- STATISTICAL DETAILS FROM THE HYPOTHESIS TEST -->
 ```{r, echo=FALSE, results='asis'}
-# This chunk sends RAW text to the PDF to create a heading
-if (!is.null(params$Htest_details)) {
-  # Adding leading newlines here to ensure that this renders as a new section
-  cat("\n\n### Precision Comparison - Hypothesis test details\n\n")
+if (params$has_baseline_comp == "Yes" && !is.null(params$Htest_details)) {
+  cat("\n\n### Part II: Statistical Hypothesis Test Details\n\n")
 }
 ```
 ```{r, echo=FALSE}
-# This chunk prints the object into a code box (the R console look)
-if (!is.null(params$Htest_details)) {
+if (params$has_baseline_comp == "Yes" && !is.null(params$Htest_details)) {
   print(params$Htest_details)
 }
 ```
-<!-- Data ellipse plot -->
-```{r, echo=FALSE, fig.align='center', results='asis', fig.width=5.5, fig.height=5.5, out.width="60%", fig.pos='!h', fig.cap="Visual comparison of Current and Historic spherical precision"}
-if (!is.null(params$ellipse_plot_path)) {
-  cat("\n\n### Precision Comparison - Data ellipse plots\n\n")
+
+```{r, echo=FALSE, fig.align='center', results='asis', fig.width=5.5, fig.height=5.5, out.width="60%", fig.pos='H', fig.cap="Visual comparison of Verification and Baseline spherical precision"}
+if (params$has_baseline_comp == "Yes" && !is.null(params$ellipse_plot_path)) {
+  cat("\n\n### Part II: Precision Comparison - Visualized Covariance Ellipses\n\n")
+  
   knitr::include_graphics(params$ellipse_plot_path)
-} 
-```
-
-
-
-<!-- COMPLETE MCS RESULTS -->
-```{r, echo=FALSE, results='asis'}
-if (!is.null(params$expected_errors)) {
-  ## add the header
-  cat("### Part II - Monte Carlo simulation complete results\n\n")
-  # 1. Print the table first
-  # Note: We use print() because kable needs to be explicitly pushed to the output in a loop/if block
-  print(knitr::kable(params$expected_errors, 
-               caption = "Part II MCS Results",
-               booktabs = TRUE))
-  # 2. Add a small vertical space
-  cat("\n\n")
-  # 3. Print the explanatory text
-  # We use asis_output so the text matches the document font and handles the variables
-  statement <- paste0("These results were obtained from a Monte Carlo simulation using ", 
-                      params$nIt_mcs, " iterations and may be replicated using the seed ", 
-                      params$seed_value, ".")
-  cat(knitr::asis_output(statement))
-  # 4. Add a final newline for spacing
-  cat("\n\n")
-
-} else {
-  # If the data is missing, we print nothing at all
-  cat("")
 }
 ```
 
-## METADATA
-### Residual plots 
+```{r, echo=FALSE, results='asis', fig.width=8, fig.height=3.75, fig.align='center', out.width="85%", fig.pos='H', fig.cap="Expected error ranges under current spherical precision"}
+if (params$has_baseline_comp == "Yes" && !is.null(params$expectederror_plot)) {
+  cat("### Part II: Plot of EER Values\n\n")
+  print(params$expectederror_plot)
+}
+```
+
+```{r, echo=FALSE, results='asis'}
+if (params$has_baseline_comp == "Yes" && !is.null(params$expected_errors)) {
+  cat("### Part II: Complete Table of EER Values\n\n")
+  print(knitr::kable(params$expected_errors, 
+                     caption = "All 24 EER values",
+                     booktabs = TRUE))
+  cat("\n\n")
+  statement <- paste0("These results were obtained from a Monte Carlo simulation using ", 
+                      params$nIt_mcs, " iterations under random initialization seed configuration assignment ", 
+                      params$seed_value, ".")
+  cat(knitr::asis_output(statement))
+  cat("\n\n")
+}
+```
+
+\newpage
+
+### METADATA
+
+#### Residual plots 
 Angular residuals are reported in arcseconds. Ranging residuals are reported in mm.
 
-<!-- RESIDUAL PLOT (CURRENT DATA) -->
-```{r, echo=FALSE, fig.width=6.5, fig.height=6.5, fig.align='center', out.width="80%", fig.pos='!h', fig.cap="Residual plot (Current data)"}
+```{r, echo=FALSE, fig.width=6.5, fig.height=6.5, fig.align='center', out.width="75%", fig.pos='H', fig.cap="Residual plot"}
 if (!is.null(params$resPlot_current)) {
   print(params$resPlot_current)
 }
 ```
 
-<!-- RESIDUAL PLOT (HISTORIC DATA) -->
-```{r, echo=FALSE, fig.width=6.5, fig.height=6.5, fig.align='center', out.width="80%", fig.pos='!h', fig.cap="Residual plot (Historic data)"}
-if (!is.null(params$resPlot_hist)) {
-  print(params$resPlot_hist)
+```{r, echo=FALSE, fig.width=6.5, fig.height=6.5, fig.align='center', out.width="75%", fig.pos='H', fig.cap="Residual plot (Baseline data)"}
+if (params$has_baseline_comp == "Yes" && !is.null(params$resPlot_baseline)) {
+  print(params$resPlot_baseline)
 }
 ```
 
-\clearpage
+\newpage
 
 ### Current Data Metadata
+
 #### TLS Data 
-* **filename:** `r params$filename_TLStest`
+* **filename:** `r params$filename_TLS_test`
 * **nickname:** `r params$dataname_test`
 * **# of targets:** `r params$nT_test`
 * **# of positions:** `r params$nP_test`
@@ -414,25 +519,20 @@ if (!is.null(params$resPlot_hist)) {
 * **units:** `r params$tapedata_summary`
 
 ```{r, echo=FALSE, results='asis'}
-# Check if a filename exists for the historic data
-if (!is.null(params$filename_TLShist) && params$filename_TLShist != "") {
+if (params$has_baseline_comp == "Yes" && !is.null(params$filename_TLS_baseline) && params$filename_TLS_baseline != "") {
   
-  cat("### Historic Data Metadata\n")
+  cat("### Baseline Data Metadata\n")
   cat("#### TLS Data\n")
   
-  # We use a list format
-  cat("* **filename:**", params$filename_TLShist, "\n")
-  cat("* **nickname:**", params$dataname_base, "\n")
-  cat("* **# of targets:**", params$nT_base, "\n")
-  cat("* **# of positions:**", params$nP_base, "\n")
-  cat("* **units:**", params$historicTLS_UnitStatement, "\n")
-  # Add a final newline to separate this from whatever comes next
+  cat("* **filename:**", params$filename_TLS_baseline, "\n")
+  cat("* **nickname:**", params$dataname_baseline, "\n")
+  cat("* **# of targets:**", params$nT_baseline, "\n")
+  cat("* **# of positions:**", params$nP_baseline, "\n")
+  cat("* **units:**", params$baseline_TLS_UnitStatement, "\n")
   cat("\n")
   cat("#### Reference Lengths\n")
-  cat("* **filename:**", params$filename_reflengths_hist, "\n")
-  cat("* **units:**", params$reflengths_hist_summary, "\n")
+  cat("* **filename:**", params$filename_reflengths_baseline, "\n")
+  cat("* **units:**", params$reflengths_baseline_summary, "\n")
   cat("\n")
 }
 ```
-
-<!-- '`r params$dataname_test`' data read from file `r params$filename_TLStest`. Reference lengths corresponding to these data were read from file `r params$filename_reflengths`. -->

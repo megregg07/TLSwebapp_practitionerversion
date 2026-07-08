@@ -54,76 +54,90 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
     # Data input box, with dropdown for units
     sidebarLayout(
         sidebarPanel(
-         # h2("1. Upload TLS Data"),
-        #    fileInput('file_TLStest', "Test data", accept = c(".csv", ".txt")), 
-        #    div(style = "margin-top: -20px"),
-        #    textInput(inputId = "dataname_test",
-        #            label = "Test Data Nickname:",
-        #            value = "Test data"), 
-        #    selectInput('units','TLS units',choices=c('mm', 'meters', 'inches')),
-          
-        #  h2("2. Upload Reference Lengths"),
-        #  fileInput('filename_tapedata', "Dataset of Reference Lengths", accept = c(".csv", ".txt")), 
-        #  div(style = "margin-top: -25px"),
-        #  selectInput('units_tape','Reference length units',choices=c('mm', 'cm', 'inches')),
-          
+
           width = 4, # Optional: Increasing sidebar width slightly can help side-by-side layouts
+          
+          ## 1. SELECT THE ASSESSMENT TYPE (BASELINE OR VERIFICATION)
+          h3("Assessment Type"), 
+          selectInput('assessment_type', "What type of assessment is being performed?", 
+                      choices = c('Choose an option...' = '',
+                                  'Baseline Assessment', 
+                                  'Verification Assessment')), 
+          
           ## 
-          ## 1. UPLOAD THE CURRENT DATA
+          ## 2. UPLOAD THE CURRENT DATA 
           ##    1a. TLS data
           ##    1b. Reference lengths
           ##
-          fluidRow(
-            # --- Column 1: TLS Data ---
-            h3("1. Upload Current Data"),
-            column(6, 
-                   #h3("1a. Upload TLS Data"),
-                   fileInput('file_TLStest', "1a. Upload TLS data", accept = c(".csv", ".txt")), 
-                   div(style = "margin-top: -20px"),
-                   selectInput('units', 'TLS units', choices = c('mm', 'meters', 'inches')),
-                   textInput(inputId = "dataname_test",
-                             label = "Current Data Nickname:",
-                             value = "Test data")
-            ),
+          conditionalPanel(
+            condition = "input.assessment_type != ''",
+            hr(style = "border-top: 1px solid #aaaaaa;"),
+            fluidRow(
+              
+              ## DYNAMIC HEADER BASED ON ASSESSMENT TYPE SELECTION
+              conditionalPanel(
+                condition = "input.assessment_type == 'Baseline Assessment'",
+                h3("1. Upload Baseline Data")
+              ), 
+              conditionalPanel(
+                condition = "input.assessment_type == 'Verification Assessment'",
+                h3("1. Upload Verification Data")
+              ),
+              
+              # --- Column 1: TLS Data ---
+              column(6, 
+                    fileInput('file_TLStest', "1a. TLS Data", accept = c(".csv", ".txt")), 
+                    div(style = "margin-top: -20px"),
+                    selectInput('units', 'TLS units', choices = c('mm', 'meters', 'inches')),
+                    textInput(inputId = "dataname_test",
+                               label = "Data Nickname:",
+                               value = "Test data")
+              ),
             
-            # --- Column 2: Reference Lengths ---
-            column(6, 
-                   #h3("1b. Upload reference length data"),
-                   fileInput('filename_tapedata', "1b. Upload reference lengths", accept = c(".csv", ".txt")), 
-                   div(style = "margin-top: -20px"),
-                   selectInput('units_tape', 'Reference length units', choices = c('mm', 'cm', 'inches'))
+              # --- Column 2: Reference Lengths ---
+              column(6, 
+                    #h3("1b. Upload reference length data"),
+                    fileInput('filename_tapedata', "1b. Reference Length Data", accept = c(".csv", ".txt")), 
+                    div(style = "margin-top: -20px"),
+                    selectInput('units_tape', 'Reference length units', choices = c('mm', 'cm', 'inches'))
+              )
             )
           ),
-          ## add a faint line for visual distinction
-          hr(style = "border-top: 1px solid #aaaaaa;"),
           
-          ## 
-          ## 2. ARE WE MAKING A HISTORICAL COMPARISON?
-          ##    If yes:
-          ##      2a. TLS data
-          ##      2b. Reference lengths
-          ##
-          h3("2. Historic Comparison"), 
-           selectInput('partII_htest', "Compare the current data to a previous set of data?", choices = c('No', 'Yes')),
-          ## If yes, allow user to upload data
+          ## 3. UPLOAD THE HISTORIC DATA
+          ##    (only appears if "Verification Assessment" is selected)
           conditionalPanel(
-            condition = "input.partII_htest == 'Yes'", 
+            condition = "input.assessment_type == 'Verification Assessment'",
+            ## add a faint line for visual distinction
+            hr(style = "border-top: 1px solid #aaaaaa;"),
+          
+            ## 
+            ## 2. ARE WE MAKING A HISTORICAL COMPARISON?
+            ##    If yes:
+            ##      2a. TLS data
+            ##      2b. Reference lengths
+            ##
+          h3("2. Upload Baseline Data"), 
+          # selectInput('partII_htest', "Compare the current data to a previous set of data?", choices = c('No', 'Yes')),
+          ## If yes, allow user to upload data
+          #conditionalPanel(
+          #  condition = "input.partII_htest == 'Yes'", 
             fluidRow(
               # --- Column 1: historic TLS Data ---
               column(6, 
                      #h3("1a. Upload TLS Data"),
-                     fileInput('file_TLSbase', "2a. Upload historic TLS data", accept = c(".csv", ".txt")),
+                     fileInput('file_TLSbase', "2a. Baseline TLS Data", accept = c(".csv", ".txt")),
                      div(style = "margin-top: -20px"),
-                     selectInput('historic_units','Historic TLS data units',choices=c('mm', 'meters', 'inches')),
+                     selectInput('historic_units','Baseline TLS data units',choices=c('mm', 'meters', 'inches')),
                      textInput(inputId = "dataname_base",
-                               label = "Historic Data Nickname:",
-                               value = "Historic data")
+                               label = "Baseline Data Nickname:",
+                               value = "Baseline data")
               ),
               #--- Column 2: Historic Reference Lengths ---
               column(6, 
-                     fileInput('filename_reflengths_hist', "2b. Upload historic reference lengths", accept = c(".csv", ".txt")), 
+                     fileInput('filename_reflengths_hist', "2b. Baseline Reference Length Data", accept = c(".csv", ".txt")), 
                      div(style = "margin-top: -20px"),
-                     selectInput('reflengths_hist_units', 'Historic reference length units', choices = c('mm', 'cm', 'inches'))
+                     selectInput('reflengths_hist_units', 'Baseline reference length units', choices = c('mm', 'cm', 'inches'))
               )
             )
           ), # <-- CLOSES CONDITIONAL PANEL
@@ -133,26 +147,59 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
           ##
           ## 3. HOW DO YOU WANT THE PART I ERRORS TO BE REPORTED?
           ##
-          h3("3. Error Reporting and Specification"),
-          selectInput('report_as', 'Report errors as:', choices = c('Length error (mm)', 'Percentage of reference length')),
-          selectInput('includeThreshold', "Set error specification value?", choices = c('No', 'Yes')),
-          
-          ## conditional numeric input that appears if 'includeThreshold' == Yes
           conditionalPanel(
-            condition = "input.includeThreshold == 'Yes' && input.report_as == 'Length error (mm)'",
-            numericInput("threshold_mm","Error specification (mm)",value = 1, step = 0.1, min = 0.1)
-          ),
-          conditionalPanel(
-            condition = "input.includeThreshold == 'Yes' && input.report_as == 'Percentage of reference length'",
-            numericInput("threshold_pct","Error specification (%)",value = 0.5, step = 0.01, min = 0.01)
-          ),
+            condition = "input.assessment_type != ''", 
+            
+            ## DYNAMIC HEADER BASED ON ASSESSMENT TYPE SELECTION
+            conditionalPanel(
+              condition = "input.assessment_type == 'Baseline Assessment'",
+              h3("2. Error Reporting and MPE")
+            ), 
+            conditionalPanel(
+              condition = "input.assessment_type == 'Verification Assessment'",
+              h3("3. Error Reporting and MPE")
+            ),
+            
+            ##**GO BACK TO THIS WHEN ADDING BACK IN THE FEATURE OF SETTING MPE AS A PERCENTAGE**
+            #selectInput('report_as', 'Report errors as:', choices = c('Length error (mm)', 'Percentage of reference length')),
+            # --- TEMPORARY SELECTION: SHOW THAT % WILL BE AN OPTION IN THE FUTURE ---
+            tags$div(class = "form-group shiny-input-container",
+                     tags$label(class = "control-label", `for` = "report_as", "Report errors as:"),
+                     tags$select(id = "report_as", class = "form-control",
+                                 tags$option(value = "Length error (mm)", "Length error (mm)"),
+                                 tags$option(value = "Percentage of reference length (forthcoming feature)", 
+                                             "Percentage of reference length (forthcoming feature)", disabled = "disabled")
+                     )
+            ),
+
           
-        ## WHERE ERROR MESSAGE RELATING TO DUPLICATE FILES IS DISPLAYED
-        uiOutput("file_validation_display"),
+            ## MPE STUFF IF USER WANTS ERRORS REPORTED IN MM
+            conditionalPanel(
+              condition = "input.report_as == 'Length error (mm)'",
+              ## MPE input (in mm)
+              numericInput("threshold_mm","Maximum Permissible Error Value (mm):",value = 5, step = 0.1, min = 1), 
+              # Reference Length Uncertainty Input (Defaults to 1mm)
+              numericInput("unc_ref", "Reference Length Uncertainty (mm):", 
+                           value = 1, step = 0.1, min = 0.01),
+              # Placeholder for making uncertainty value too low Warning
+              uiOutput("unc_warning"),
+              ## Placeholder for the 4:1 Warning
+              uiOutput("mpe_ratio_warning")
+            ),
+            
+            ## MPE INPUTS IF USER WANTS ERRORS REPORTED AS PERCENTAGE 
+            conditionalPanel(
+              condition = "input.report_as == 'Percentage of reference length'",
+              numericInput("threshold_pct","Maximum Permissible Error Value (%):",value = 0.5, step = 0.01, min = 0.01)
+            )
+          ), # <--- THIS CLOSES THE NEW ASSESSMENT TYPE CONDITIONAL PANEL
+          
+          ## WHERE ERROR MESSAGE RELATING TO DUPLICATE FILES IS DISPLAYED
+          uiOutput("file_validation_display"),
         
         fluidRow(
           column(width = 6, 
-                 actionButton('runAnalysis','Run Analysis', class = "btn-primary")
+                 shinyjs::disabled(actionButton('runAnalysis','Run Analysis', class = "btn-primary"))
                  ), 
           column(width = 6, 
                  div(style = "text-align: right;",
@@ -169,7 +216,7 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
           div(id = "advanced_section",
               style = "margin-top: 15px; padding-left: 10px; border-left: 2px solid #ddd;",
               h4("Advanced settings"),
-              numericInput("alpha", "Significance Threshold", value = 0.01, step = 0.001, min = .001),
+              numericInput("alpha", "Hypothesis test significance threshold", value = 0.01, step = 0.001, min = .001),
               numericInput("seed_value", "MCS seed value", value = rand_seed), 
               numericInput("nIt_mcs", "Number of MCS iterations", value = 3000, min = 500)
           )
@@ -187,7 +234,19 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                uiOutput("info")),
                       ## prepare the output space for "Part I - Analysis" tab 
                       tabPanel("Part I - Accuracy", 
-                               h2("Accuracy - Current Data"), 
+                               ## COMPLIANCE SUMMARY
+                               uiOutput("partI_summary_box"),
+                               br(),
+                               
+                               ## DYNAMIC MAIN HEADERS
+                               conditionalPanel(
+                                 condition = "input.assessment_type == 'Baseline Assessment'",
+                                 h2("Accuracy - Baseline Data")
+                               ),
+                               conditionalPanel(
+                                 condition = "input.assessment_type == 'Verification Assessment'",
+                                 h2("Accuracy - Verification Data")
+                               ),
                                ## Summary statement
                                uiOutput("length_summary"), 
                                ## Summary table -- if threshold given and no values exceed, then there will be no table 
@@ -208,8 +267,8 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                 br(), 
                                ## IF HISTORIC COMPARISON IS MADE, REPORT VALUES HERE
                                conditionalPanel(
-                                 condition = "input.partII_htest =='Yes'",
-                                 h2("Accuracy - Historic Data"),
+                                 condition = "input.assessment_type =='Verification Assessment'",
+                                 h2("Baseline Accuracy"),
                                  ## Historical Part I accuracy statement
                                  uiOutput("length_summary_hist"), 
                                  ## Summary table -- if threshold given and no values exceed, then there will be no table 
@@ -245,15 +304,29 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                       ## Historic comparison Will appear here by Server code
                       ##
                       tabPanel("Part II - Precision", 
-                               h2("Precision - Current Data"), 
+                               ## COMPLIANCE SUMMARY BOX
+                               ## Universal Part II Compliance Summary Box
+                               uiOutput("partII_summary_box"),
+                               br(),
+                               
+                               ## DYNAMIC MAIN HEADERS
+                               conditionalPanel(
+                                 condition = "input.assessment_type == 'Baseline Assessment'",
+                                 h2("Precision - Baseline Data")
+                               ),
+                               conditionalPanel(
+                                 condition = "input.assessment_type == 'Verification Assessment'",
+                                 h2("Precision - Verification Data")
+                               ),
+                               
                                uiOutput("testdata_SDstatements"), 
                                br(),
                                
                                # Everything inside this panel only appears if 'Yes' is selected
                                conditionalPanel(
-                                 condition = "input.partII_htest == 'Yes'",
+                                 condition = "input.assessment_type == 'Verification Assessment'",
                                  ## report SDs from Historic data
-                                 h2("Precision - Historic Data"), 
+                                 h2("Precision - Baseline Data"), 
                                  uiOutput("basedata_SDstatements"),
                                  h2("Precision Comparison"),
                                  ## Report the results of the hypothesis test
@@ -276,51 +349,69 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
                                ),
                                ),
 
-                      ## 
-                      ## DATA SUMMARY TAB - report # of Targets/Postions, and plots that check for bad targets
-                      ##
-                      tabPanel("Metadata & Report", 
-                               #h2("Download Report"),
-                               #downloadButton("download_report", "Generate Report"),
-                               #h3("Data Summaries"),
-                               #br(),
-                               # Display the two data summaries side by side, if applicable
-                              div(style = "display: flex; justify-content: flex-start; gap: 50px;",
-                                  div(style = "min-width: 250px;", 
-                                      uiOutput("summary_currentdata"),
-                                      br(),
-                                      uiOutput("resPlot_container_test")
-                                  ),
-                                  conditionalPanel(
-                                    condition = "input.partII_htest == 'Yes'",
-                                    div(style = "min-width: 250px;", 
-                                        uiOutput("summary_historicdata"),
-                                        br(),
-                                        uiOutput("resPlot_container_base")
-                                    )
-                                  )
-                              ), 
-                              br(),
-                              # --- ADDED NOTES SECTION HERE ---
-                              div(style = "max-width: 600px;", # Keeps the box from stretching too wide
-                                  textAreaInput(inputId = "report_notes", 
-                                                label = "Report Notes (Optional):", 
-                                                placeholder = "Enter details for your records", 
-                                                rows = 4, 
-                                                width = "100%")
-                              ),
-                              br(),
-                              # --------------------------------
-                              downloadButton("download_report", "Generate Report")
-
-                               ## Now some plots to check for bad targets
-                               #uiOutput("residualStatement"),
-                               #uiOutput("resPlot_container_test"),  ## This replaces 'plotOutput'
-                               #plotOutput("resPlot_test", width = "600px", height = "600px"),
-                               ## Now report summary stuff for the Historic Data (if uploaded)
-                               #conditionalPanel(condition = "input.partII_htest == 'Yes'",
-                              #                  uiOutput("resPlot_container_base"))
-                      )
+            ## 
+            ## DATA SUMMARY & REPORT TAB
+            ## 
+            tabPanel("Summary & Report", 
+                     ## box that will print the overall assessment conclusion
+                     # ---- PASTE THE SUMMARY BOX HERE ----
+                     uiOutput("overall_assessment_summary"),
+                     hr(style = "border-top: 1px solid #aaaaaa;"),
+                     
+                     # 1. Main horizontal flex container holding both columns side-by-side
+                     div(style = "display: flex; justify-content: flex-start; gap: 50px;",
+                         
+                         # --- Column 1: Primary Data Metadata ---
+                         div(style = "min-width: 250px;", 
+                             conditionalPanel(
+                               condition = "input.assessment_type == 'Baseline Assessment'",
+                               HTML("<h3>Baseline Data Metadata:</h3>")
+                             ),
+                             conditionalPanel(
+                               condition = "input.assessment_type == 'Verification Assessment'",
+                               HTML("<h3>Verification Data Metadata:</h3>")
+                             ),
+                             uiOutput("summary_currentdata"),
+                             br(),
+                             uiOutput("resPlot_container_test")
+                         ), # <-- Closes Column 1 div
+                         
+                         # --- Column 2: Baseline Comparison Data (Verification track only) ---
+                         conditionalPanel(
+                           condition = "input.assessment_type == 'Verification Assessment'",
+                           div(style = "min-width: 250px;", 
+                               HTML("<h3>Baseline Data Metadata:</h3>"), 
+                               uiOutput("summary_historicdata"),
+                               br(),
+                               uiOutput("resPlot_container_base")
+                           ) # <-- Closes Column 2 inner div
+                         ) # <-- Closes Column 2 conditionalPanel
+                         
+                     ), # <-- Closes main horizontal flex container div
+                     
+                     br(),
+                     
+                     # 2. Optional Report Notes Section
+                     div(style = "max-width: 600px;", 
+                         textAreaInput(inputId = "report_notes", 
+                                       label = "Report Notes (Optional):", 
+                                       placeholder = "Enter details for your records", 
+                                       rows = 4, 
+                                       width = "100%")
+                     ), # <-- Closes notes div
+                     
+                     br(),
+                     
+                     # 3. Action Buttons Section (Generate Report & Reset)
+                     div(style = "display: flex; justify-content: flex-start; gap: 50px;", 
+                         div(style = "min-width: 250px;",
+                             downloadButton("download_report", "Generate Report")
+                         ),
+                         div(style = "min-width: 250px;", 
+                             actionButton("reset_button", "Reset App", icon = icon("undo"), class = "btn-danger")
+                         )
+                     )
+            ) # <--- CLOSES METADATA & REPORT TAB PANEL CLEANLY
           )
         ) # <--- MAIN PANEL ENDS
     ) # <--- SIDEBAR LAYOUT ENDS
@@ -334,90 +425,146 @@ ui <- fluidPage(theme = shinytheme("spacelab"),
 ##############################
 server <- function(input, output, session) {
   
-  ## DETERMINE IF WE NEED THE HISTORIC COMPARISON TAB
-  #observeEvent(input$partII_htest, {
-  #  if (input$partII_htest == "Yes") {
-  #    insertTab(
-  #      inputId = "results_tabs",
-  #      tabPanel(
-  #        title = "Historic Comparison",
-  #        value = "historic_tab", # This ID is used to remove it later
-  #        h2("Accuracy Comparison"),
-          ## Historical Part I accuracy statement
-  #        uiOutput("length_summary_hist"), 
-  #        ## Summary table -- if threshold given and no values exceed, then there will be no table 
-  #        uiOutput("lengtherrors_subtable_hist"),
-  #        br(),
-  #        ## Historical Part I accuracy plot
-  #        plotOutput("errorPlot_hist", width = "700px", height = "350px"),
-  #        br(),
-          ## Historical precision comparison
-  #        h2("Precision Comparison"), 
-  #        uiOutput("basedata_SDstatements"),
-  #        br(),
-          #uiOutput("p2_interpretation"), 
-  #        uiOutput("ellipse_container")
-          #br(),
-          ## statement about the expected error range from MCS
-          #uiOutput("EER_explanation"),
-          #br(),
-          ## ** put the MCS results here
-          #uiOutput("expectederrors_summary"), 
-          #verbatimTextOutput("expectederrors_subtable"),
-          #uiOutput("expectederrors_subtable"),
-          #br(),
-          #plotOutput("expectederrorPlot", width = "700px", height = "350px")
-          #plotOutput("ellipsePlot", width = "600px", height = "600px")
-    #    ),
-    #    target = "Results - Current Data", # Place it after this tab
-    #    position = "after"
-    #  )
-    #} else {
-      # This removes the tab if the user selects "No"
-    #  removeTab(inputId = "results_tabs", target = "historic_tab")
-    #}
-  #})
+ 
   
+  # Dynamically change data nicknames based on assessment type
+  observeEvent(input$assessment_type, {
+    if (input$assessment_type == "Baseline Assessment") {
+      updateTextInput(session, "dataname_test", value = "Baseline data")
+      updateTextInput(session, "dataname_base", value = "") # Clear out historic if baseline
+    } else if (input$assessment_type == "Verification Assessment") {
+      updateTextInput(session, "dataname_test", value = "Verification data")
+      updateTextInput(session, "dataname_base", value = "Baseline data")
+    }
+  })
+  
+  ## WARNING IF REFERENCE LENGTH UNCERTAINTY IS BELOW THE ESTABILSHED VALUE
+  output$unc_warning <- renderUI({
+    req(input$unc_ref)
+    
+    if (input$unc_ref < 1) {
+      div(style = "color: #8a6d3b; background-color: #fcf8e3; border: 1px solid #faebcc; padding: 12px; margin-top: 15px; border-radius: 4px; font-size: 0.9em;",
+          icon("exclamation-triangle"),
+          strong(" Documentation Required:"), 
+          "You will need formal documentation to support using a reference length uncertainty value this low."
+      )
+    }
+  })
+  
+  # ------------------------------------------------------------------
+  # WARNING: CHECK THE 4:1 RATIO
+  # ------------------------------------------------------------------
+  output$mpe_ratio_warning <- renderUI({
+    req(input$threshold_mm, input$unc_ref)  # <-- Updated to input$threshold_mm
+    
+    min_allowable_mpe <- 4 * input$unc_ref
+    if (input$threshold_mm < min_allowable_mpe) {  # <-- Updated to input$threshold_mm
+      div(style = "color: #a94442; background-color: #f2dede; border: 1px solid #ebccd1; padding: 12px; margin-top: 10px; border-radius: 4px; font-size: 0.9em;",
+          icon("ban"),
+          strong(" Ratio Violation:"), 
+          sprintf(" The MPE must be at least 4 times the reference length uncertainty. Minimum MPE allowed for the current uncertainty value is %s mm.", min_allowable_mpe)
+      )
+    }
+  })
+  # ------------------------------------------------------------------
+  # LOCK 'RUN ANALYSIS' BUTTON IF 4:1 RULE VIOLATED
+  # ------------------------------------------------------------------
+  observe({
+    req(input$threshold_mm, input$unc_ref)  # <-- Updated to input$threshold_mm
+    
+    # Check if the 4:1 rule is violated using the correct UI ID
+    if (input$threshold_mm < (4 * input$unc_ref)) {  # <-- Updated to input$threshold_mm
+      shinyjs::disable("runAnalysis")
+    } else {
+      shinyjs::enable("runAnalysis")
+    }
+  })
+  
+
   ## OBSERVE IF WE NEED THE ADVANCED SETTINGS OPTION
   observeEvent(input$toggle_adv, {
     toggle("advanced_section", anim = TRUE)
+  })
+  
+  ## OBSERVE IF THE USER WANTS TO RESET EVERYTING
+  observeEvent(input$reset_button, {
+    session$reload()
+  })
+  
+  ## FORCE DATA TO BE UPLOADED BEFORE 'RUN ANALYSIS' CAN BE CLICKED 
+  observe({
+    # 1. Check if primary files are uploaded
+    has_primary <- !is.null(input$file_TLStest) && !is.null(input$filename_tapedata)
+    
+    # 2. Check if comparison files are uploaded
+    has_baseline_comp <- !is.null(input$file_TLSbase) && !is.null(input$filename_reflengths_hist)
+    
+    # 3. Determine if current conditions meet the criteria for the chosen path
+    requirements_met <- if (input$assessment_type == "Baseline Assessment") {
+      has_primary
+    } else if (input$assessment_type == "Verification Assessment") {
+      has_primary && has_baseline_comp
+    } else {
+      FALSE # If no assessment type is chosen yet, keep it disabled
+    }
+    
+    # 4. Use shinyjs to instantly flip the button state in the user's browser
+    shinyjs::toggleState("runAnalysis", condition = requirements_met)
+  })
+  
+  # AUTOMATICALLY JUMP TO THE 'PART I' TAB 
+  ## (prevents the analyses from being stalled b/c user was on INFO tab)
+  observeEvent(input$runAnalysis, {
+    updateTabsetPanel(
+      session = session, 
+      inputId = "results_tabs",          # The ID of your tabsetPanel
+      selected = "Part I - Accuracy"     # The exact title of the tab you want to show
+    )
   })
   
   ##**************************
   # --- CENTRAL VALIDATION ---
   # This checks all file relationships before any data is read
   file_error_message <- reactive({
-    # Core requirement: Current TLS and Current Tape must exist to even begin checking
+    # Core requirement: The primary data inputs must exist to check anything
     if (is.null(input$file_TLStest) || is.null(input$filename_tapedata)) return(NULL)
     
-    # 1. ALWAYS check Test vs Tape
+    # Get labels based on assessment track for dynamic error text
+    is_verification <- (input$assessment_type == "Verification Assessment")
+    primary_label <- if (is_verification) "Verification" else "Baseline"
+    
+    # 1. ALWAYS check Primary TLS vs Primary Reference Lengths
     if (input$file_TLStest$name == input$filename_tapedata$name) {
-      return("Error: TLS Data and Reference Lengths must be different files.")
+      return(paste("Error:", primary_label, "TLS Data and", primary_label, "Reference Lengths must be different files."))
     }
     
-    # Logic for Historic Data (Base)
-    if (!is.null(input$file_TLSbase)) {
-      # 2. Check Test vs Base
+    # Logic for Baseline Comparison Data (Only checked during Verification tracks)
+    if (is_verification && !is.null(input$file_TLSbase)) {
+      # 2. Check Verification TLS vs Baseline TLS
       if (input$file_TLStest$name == input$file_TLSbase$name) {
-        return("Error: Current TLS Data and Historic TLS Data must be different files.")
+        return("Error: Verification TLS Data and Baseline TLS Data must be different files.")
       }
-      # 3. Check Base vs Tape
+      # 3. Check Baseline TLS vs Verification Reference Lengths
       if (input$file_TLSbase$name == input$filename_tapedata$name) {
-        return("Error: Historic TLS Data and Current Reference Lengths must be different files.")
+        return("Error: Baseline TLS Data and Verification Reference Lengths must be different files.")
       }
     }
     
-    # Logic for Historic Reference Lengths
-    if (!is.null(input$filename_reflengths_hist)) {
-      # 5. Check Test vs Historic Reference Lengths
+    # Logic for Baseline Reference Lengths
+    if (is_verification && !is.null(input$filename_reflengths_hist)) {
+      # 5. Check Verification TLS vs Baseline Reference Lengths
       if (input$file_TLStest$name == input$filename_reflengths_hist$name) {
-        return("Error: Current TLS Data and Historic Reference Lengths must be different files.")
+        return("Error: Verification TLS Data and Baseline Reference Lengths must be different files.")
+      }
+      # 6. Check Verification Reference Lengths vs Baseline Reference Lengths
+      if (input$filename_tapedata$name == input$filename_reflengths_hist$name) {
+        return("Error: Verification Reference Lengths and Baseline Reference Lengths must be different files.")
       }
       
-      # 4. Check Base vs Historic Reference Lengths (if Base exists)
+      # 4. Check Baseline TLS vs Baseline Reference Lengths
       if (!is.null(input$file_TLSbase)) {
         if (input$file_TLSbase$name == input$filename_reflengths_hist$name) {
-          return("Error: Historic TLS Data and Historic Reference Lengths must be different files.")
+          return("Error: Baseline TLS Data and Baseline Reference Lengths must be different files.")
         }
       }
     }
@@ -451,7 +598,7 @@ server <- function(input, output, session) {
     } else {
       ext = tools::file_ext(input$file_TLStest$name)
       data_test = switch(ext, csv = read.csv(input$file_TLStest$datapath), 
-                           txt = read.table(input$file_TLStest$datapath, header = FALSE), 
+                           txt = read.table(input$file_TLStest$datapath, header = TRUE), 
                            validate("Invalid file; Please upload a .csv or .txt file"))
       return(data_test)
     }
@@ -476,7 +623,7 @@ server <- function(input, output, session) {
   })
   
   ##
-  ##**Historic data**
+  ##**BASELINE data**
   ##*
   ## IMPORT THE HISTORIC TLS DATA (baseline)
   data_base <- reactive({
@@ -488,7 +635,7 @@ server <- function(input, output, session) {
     ext <- tools::file_ext(input$file_TLSbase$name)
     switch(ext, 
            csv = read.csv(input$file_TLSbase$datapath), 
-           txt = read.table(input$file_TLSbase$datapath, header = FALSE), 
+           txt = read.table(input$file_TLSbase$datapath, header = TRUE), 
            validate("Invalid file; Please upload a .csv or .txt file"))
   })
   
@@ -544,6 +691,30 @@ server <- function(input, output, session) {
     
     ##**CHECK IF DATA FILES WERE UPLOADED**
     ##*
+    ##*# NEW GUARD CLAUSE: Explicitly intercept missing files before running calculations
+    if (input$assessment_type == "Verification Assessment") {
+      validate(
+        need(input$file_TLStest, "Missing File: Please upload the Verification TLS data."),
+        need(input$filename_tapedata, "Missing File: Please upload the Verification reference lengths."),
+        need(input$file_TLSbase, "Missing File: Please upload the Baseline TLS data comparison file."),
+        need(input$filename_reflengths_hist, "Missing File: Please upload the Baseline reference lengths comparison file.")
+      )
+    } else if (input$assessment_type == "Baseline Assessment") {
+      validate(
+        need(input$file_TLStest, "Missing File: Please upload the Baseline TLS data."),
+        need(input$filename_tapedata, "Missing File: Please upload the Baseline reference lengths.")
+      )
+    }
+    
+    # Ensure no duplicate file validations are failing
+    validate(need(is.null(file_error_message()), "Please resolve file duplication errors before running analysis."))
+    
+    # Verify that a numeric threshold value is safely provided
+    if (input$report_as == 'Length error (mm)') {
+      validate(need(input$threshold_mm, "Please enter a valid numeric value for the Error Specification (mm)."))
+    } else {
+      validate(need(input$threshold_pct, "Please enter a valid numeric value for the Error Specification (%)."))
+    }
     
     ## ESTABLISH PROGRESS BAR
    withProgress(message = 'Performing', value = 0, {
@@ -555,7 +726,7 @@ server <- function(input, output, session) {
     #browser()
     
     ## DETERMINE WHETHER A HISTORIC COMPARISON IS BEING MADE
-    results_out$partII_htest <- input$partII_htest  ## either 'Yes' or 'No'
+    results_out$partII_htest <- if(input$assessment_type == "Verification Assessment") "Yes" else "No"
     
     ## READ IN THE ADVANCED SETTINGS PARAMETERS**
     results_out$alpha <- input$alpha
@@ -597,19 +768,20 @@ server <- function(input, output, session) {
     ## first, convert threshold to mm, if necessary
     ## if includeThreshold==No, make NA,
     ## otherwise, need to determine the units_tape and see if the threshold needs to change
-    results_out$threshold = if(input$includeThreshold=='No') {
-      NA} else{
-        switch(input$report_as, 
-               'Length error (mm)' = input$threshold_mm, 
-               'Percentage of reference length' = input$threshold_pct
-        )
-      }
+    results_out$threshold <- switch(input$report_as, 
+                                    'Length error (mm)' = input$threshold_mm, 
+                                    'Percentage of reference length' = input$threshold_pct
+    )
     
     ## this can be fed directly into the Part I plotting function
     results_out$error_reporting = switch(input$report_as, 
                                          'Length error (mm)' = 'mm', 
                                          'Percentage of reference length' = 'pct')
     
+    ##
+    ##**OBTAIN THE REFERENCE LENGTH UNCERTAINTY VALUE** (and warning, if necessary)
+    results_out$unc_ref = input$unc_ref
+
     ##**************************
     ## DATA SUMMARY STATEMENTS
     ##
@@ -642,7 +814,7 @@ server <- function(input, output, session) {
     ##*  b. calculate the number of targets/positions
     ##*  c. create the historical data summary statement
     ##*  d. save the data 1 in the 'results_out' stuff
-    if(input$partII_htest=="Yes") {
+    if(input$assessment_type == "Verification Assessment") {
       ## 1. GET THE FILE NAMES 
       results_out$filename_TLShist <- input$file_TLSbase$name  ## file name for historic TLS data
       results_out$filename_reflengths_hist <- input$filename_reflengths_hist$name ## filename for historic reference lengths
@@ -678,8 +850,8 @@ server <- function(input, output, session) {
       results_out$reflengths_hist_units = input$reflengths_hist_units
       ## Add a nice statement about the historic reference data units (were they converted?)
       results_out$reflengths_hist_summary = if(input$reflengths_hist_units=='mm') {
-        paste("Historic reference lengths were collected in mm.")
-      } else {paste("Historic reference lengths were collected in", input$units_tape, "and converted to mm.")
+        paste("Baseline reference lengths were collected in mm.")
+      } else {paste("Baseline reference lengths were collected in", input$units_tape, "and converted to mm.")
       }
       
       ##    c) Convert the historic reference lengths to mm, if necessary
@@ -693,13 +865,15 @@ server <- function(input, output, session) {
       ## If a threshold was included, count how many absolute length errors are larger
       ## than the threshold, and report the values that were, if applicable
       ## 
-      if(input$includeThreshold=='No') {
+      if(FALSE) {  ## I removed the includeThreshold option (the user must now always have a threshold value)
+        
+      #if(input$includeThreshold=='No') {
         ## IF NO THRESHOLD IS PROVIDED, PROVIDE A TABLE OF THE LARGEST THREE ERRORS
         ## the Statement and the table will change, depending on whether the user wants the results
         ## reported as length errors or as % error...
         results_out$lengtherrors_summary_hist = switch(input$report_as, 
-                                                  'Length error (mm)' = "No error specification was provided. Displaying the three largest historic length errors. Units are mm.",
-                                                  'Percentage of reference length' = "No error specification was provided. Displaying the three largest historic percent errors. Units are mm."
+                                                  'Length error (mm)' = "No error specification was provided. Displaying the three largest historic length errors.",
+                                                  'Percentage of reference length' = "No error specification was provided. Displaying the three largest historic percent errors"
         )
         results_out$lengtherrors_subtable_hist = switch(input$report_as,
                                                    'Length error (mm)' = (results_out$A_F_LengthError_table_hist %>% arrange(desc(abs(Error))))[1:3,], 
@@ -715,7 +889,7 @@ server <- function(input, output, session) {
         ##**PROBABLY NEED TO EDIT THE 'lengthError_statement' function to either be 'historic' statement or 'current' statement*
         lengtherrors_exceed_hist = lengthError_statement(table = gtab_PartI_hist, t_val = results_out$threshold, 
                                                     report_as = results_out$error_reporting, section = "PartI")
-        results_out$lengtherrors_summary_hist = paste("<b>Historic data:</b>", lengtherrors_exceed_hist$statement)
+        results_out$lengtherrors_summary_hist = paste("<b>Baseline data:</b>", lengtherrors_exceed_hist$statement)
         results_out$lengtherrors_subtable_hist = lengtherrors_exceed_hist$table
         ## make a clean statement for punting to the PDF document
         results_out$lengtherrors_statement_hist_clean = lengtherrors_exceed_hist$statement
@@ -763,7 +937,9 @@ server <- function(input, output, session) {
     ## than the threshold, and report the values that were, if applicable
     ## 
 
-    if(input$includeThreshold=='No') {
+    if(FALSE) { ## I removed the 'includeThreshold' option...there is now always a threshold value
+      
+    #if(input$includeThreshold=='No') {
       ## IF NO THRESHOLD IS PROVIDED, PROVIDE A TABLE OF THE LARGEST THREE ERRORS
       ## the Statement and the table will change, depending on whether the user wants the results
       ## reported as length errors or as % error...
@@ -788,7 +964,6 @@ server <- function(input, output, session) {
     }
     
     
-    
     ##*********************
     ## PART II CALCULATIONS
     ##*********************
@@ -805,7 +980,7 @@ server <- function(input, output, session) {
     results_out$SigmaHat2 = cov(results_out$X2)
     
     ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the Historic dataset, if applicable
-    results_out$Rpretty_test <- create_pretty_R(results_out$R2, data_name = dataname_test)
+    results_out$Rpretty_test <- create_pretty_R(results_out$R2, data_name = dataname_test, target_names = data2_targetList)
 
     ## create the statements about the standard deviations in the angular/ranging residuals.
     results_out$testdata_sd = round(sqrt(diag(round(results_out$SigmaHat2,3))),2)
@@ -817,7 +992,7 @@ server <- function(input, output, session) {
     ##*********************
     ##**PART II -- CONDITIONAL ON WHETHER HISTORICAL COMPARISON IS BEING DONE**
     ##* Do the same Part II on the historical ('baseline') data
-    if(input$partII_htest=="Yes") {
+    if(input$assessment_type == "Verification Assessment") {
       incProgress(3/7, detail = "rigid body transformation on historic data")
       ## Transform Cartesian coordinates to spherical residuals
       results_out$R1 = Zc_to_R(data1)
@@ -847,7 +1022,7 @@ server <- function(input, output, session) {
       pval_clean = ifelse(p2_results$pvalue < 0.001, "<0.001", round(p2_results$pvalue,3))
       
       ## full statement on hypothesis test results
-      results_out$p2_interpretation = paste0("The statistical methodology comparing the Current and Historical spherical precisions results in a p-value of ", pval_clean, ". ", p2_results$interpretation)  
+      results_out$p2_interpretation = paste0("The statistical methodology comparing the precision in the Verificaiton data to the precision in the Baseline data results in a p-value of ", pval_clean, ". ", p2_results$interpretation)  
                                         
       ## Step 4:
       ## Combine the data in preparation for plotting the data ellipses
@@ -864,15 +1039,16 @@ server <- function(input, output, session) {
       results_out$Xcomb = Xcomb
       
       ## CHECK FOR BAD TARGETS -- punt the 'R_pretty' dataset for the historical data, if applicable 
-      results_out$Rpretty_base <- create_pretty_R(results_out$R1, data_name = dataname_base)
+      results_out$Rpretty_base <- create_pretty_R(results_out$R1, data_name = dataname_base, target_names = data1_targetList)
       
       
       ##*********************
       ##* MCS ---  PROPAGATE SIGMAHAT TO LENGTHS
       ##*            -- this is conditional on whether the hypothesis test was significant
+      ##*            AND on whether any of the length errors are > MPE
       ##*********************
       
-      if(results_out$pvalue<results_out$alpha){
+      if(nrow(results_out$lengtherrors_subtable)==0 & results_out$pvalue<results_out$alpha){
       incProgress(5/7, detail = "Monte Carlo simulation - this will take some time")
       # 1. Initialize the SECOND (inner) progress bar
       # We set max to nIt so the value represents the actual iteration count
@@ -899,7 +1075,9 @@ server <- function(input, output, session) {
       ## If a threshold was included, count how many expected errors are larger
       ## than the threshold, and report the values that were, if applicable
       ## 
-      if(input$includeThreshold=='No') {
+      if(FALSE) { # includeThreshold value has been removed...there is always a threshold value now
+        
+      #if(input$includeThreshold=='No') {
         ## IF NO THRESHOLD IS PROVIDED, PROVIDE A TABLE OF THE LARGEST THREE ERRORS
         ## the Statement and the table will change, depending on whether the user wants the results
         ## reported as length errors or as % error...
@@ -936,6 +1114,131 @@ server <- function(input, output, session) {
   })
 
   
+  # ------------------------------------------------------------------
+  # COMPLIANCE BOXES
+  # ------------------------------------------------------------------
+  compliance_results <- reactive({
+    req(all_results())
+    res_out <- all_results()
+    
+    # ----------------------------------------------------------------
+    # STEP 1: EVALUATE PART I STATUS (ACCURACY)
+    # ----------------------------------------------------------------
+    # If the subtable contains 0 rows, no length errors exceeded the MPE 
+    partI_status <- if (nrow(res_out$lengtherrors_subtable) == 0) "COMPLIANT" else "NON-COMPLIANT" 
+    
+    # ----------------------------------------------------------------
+    # STEP 2: EVALUATE PART II HYPOTHESIS TEST STATUS (PRECISION)
+    # ----------------------------------------------------------------
+    partII_htest_status <- if (input$assessment_type == "Baseline Assessment") {
+      "N/A" # No compliance designation applied to Part II during Baseline tracks 
+    } else if (res_out$pvalue >= res_out$alpha) {
+      "COMPLIANT" # No significant change in precision 
+    } else {
+      "NON-COMPLIANT" # Significant change in precision detected 
+    }
+    
+    # ----------------------------------------------------------------
+    # STEP 3: EVALUATE PART II EER STATUS (EXPECTED ERROR RANGE)
+    # ----------------------------------------------------------------
+    partII_eer_status <- if (input$assessment_type == "Baseline Assessment" || is.null(res_out$expected_errors)) {
+      "N/A" # Simulation wasn't run or is not applicable 
+    } else if (nrow(res_out$expectederrors_subtable) == 0) {
+      "COMPLIANT" # All calculated EER values are less than or equal to the MPE 
+    } else {
+      "NON-COMPLIANT" # One or more EER values exceed the MPE 
+    }
+    
+    # ----------------------------------------------------------------
+    # STEP 4: COMBINE COMPONENT EVALUATIONS FOR THE OVERALL VERDICT
+    # ----------------------------------------------------------------
+    overall_meta <- list()
+    
+    # --- TRACK 1: BASELINE ASSESSMENT VERDICTS ---
+    if (input$assessment_type == "Baseline Assessment") {
+      if (partI_status == "COMPLIANT") {
+        overall_meta <- list(
+          label       = "COMPLIANT (Baseline Established)",
+          class       = "success",
+          description = "All 24 length errors are less than the MPE. Instrument accuracy is within specifications.",
+          action      = "Establish the baseline dataset and maintain the regular IPA schedule."
+        )
+      } else {
+        overall_meta <- list(
+          label       = "NON-COMPLIANT",
+          class       = "danger",
+          description = "At least one of the 24 length errors exceeds the MPE. Instrument accuracy does not meet specifications.",
+          action      = "Consider a larger MPE or contact the instrument manufacturer."
+        )
+      }
+    }
+    
+    # --- TRACK 2: VERIFICATION ASSESSMENT VERDICTS (TABLE 2 MATRIX) ---
+    if (input$assessment_type == "Verification Assessment") {
+      
+      # 1. Full Compliance [cite: 137, 169]
+      if (partI_status == "COMPLIANT" && partII_htest_status == "COMPLIANT") {
+        overall_meta <- list(
+          label       = "COMPLIANT (Full)",
+          class       = "success",
+          description = "Length errors are within the MPE and the instrument's precision has not significantly changed since the baseline data were collected.",
+          action      = "Maintain regular IPA schedule."
+        )
+      }
+      
+      # 2. Acceptable Precision Variance [cite: 140, 169]
+      else if (partI_status == "COMPLIANT" && partII_htest_status == "NON-COMPLIANT" && partII_eer_status == "COMPLIANT") {
+        overall_meta <- list(
+          label       = "COMPLIANT (Acceptable Precision Variance)",
+          class       = "success", 
+          description = "Length errors are within the MPE. The instrument's precision has changed from the baseline data, but the current precision state is not expected to cause length errors to exceed the MPE.",
+          action      = "Maintain regular IPA schedule."
+        )
+      }
+      
+      # 3. Potential Marginal Degradation [cite: 143, 169]
+      else if (partI_status == "COMPLIANT" && partII_htest_status == "NON-COMPLIANT" && partII_eer_status == "NON-COMPLIANT") {
+        overall_meta <- list(
+          label       = "MARGINALLY COMPLIANT (Potential Early Degradation)",
+          class       = "warning", 
+          description = "Length errors are currently within the MPE. However, precision has changed significantly from the baseline data and the current precision state may cause length errors to exceed the MPE.",
+          action      = "Consider performing IPA more frequently."
+        )
+      }
+      
+      # 4. Accuracy Exceedance with Stable Precision [cite: 146, 169]
+      else if (partI_status == "NON-COMPLIANT" && partII_htest_status == "COMPLIANT") {
+        overall_meta <- list(
+          label       = "MARGINALLY COMPLIANT (Accuracy Exceedance with Stable Precision)",
+          class       = "warning",
+          description = "Length errors are not within the MPE. However, precision has not changed significantly from the baseline data. This may indicate that the MPE is too stringent.",
+          action      = "Consider using instrument for use cases where a larger MPE is appropriate."
+        )
+      }
+      
+      # 5. Full Noncompliance [cite: 150, 169]
+      else if (partI_status == "NON-COMPLIANT" && partII_htest_status == "NON-COMPLIANT") {
+        overall_meta <- list(
+          label       = "NON-COMPLIANT",
+          class       = "danger",
+          description = "Length errors are not within the MPE and instrument precision has changed significantly from the baseline data.",
+          action      = "Consider withdrawing instrument from service for professional maintenance."
+        )
+      }
+    }
+    
+    # Return everything as a clean structural package to feed into the UI components
+    return(list(
+      partI      = partI_status,
+      htest      = partII_htest_status,
+      eer        = partII_eer_status,
+      label      = overall_meta$label,
+      class      = overall_meta$class,
+      description= overall_meta$description,
+      action     = overall_meta$action
+    ))
+  })
+  
   ###########################
   ##**PART 1 ANALYSIS
   ##*
@@ -953,18 +1256,26 @@ server <- function(input, output, session) {
     }
     return(paste(all_results()$units_historical))
   })
-  #output$units_tape <- renderText({
-  #  if(is.null(all_results()$units_tape)) {
-  #    return(NULL)
-  #  }
-  #  units_tape = all_results()$units_tape
-  #  if(units_tape=='mm') {
-  #    out_str = paste("Tape measure units are mm.")
-  #  } else {
-  #    out_str = paste("Tape measure units have been converted from ", units_tape, "to mm.")
-  #  }
-  #  return(out_str)
-  #})
+  
+  # PART I: COMPLIANCE STATEMENT BOX
+  output$partI_summary_box <- renderUI({
+    req(compliance_results())
+    res <- compliance_results()
+    
+    box_class <- if(res$partI == "COMPLIANT") "success" else "danger"
+    icon_name <- if(res$partI == "COMPLIANT") "check-circle" else "times-circle"
+    sub_text  <- if(res$partI == "COMPLIANT") {
+      "All 24 calculated length errors fall within the Maximum Permissible Error"
+    } else {
+      "One or more of the 24 calculated length errors exceed the Maximum Permissible Error"
+    }
+    
+    div(class = paste0("alert alert-", box_class), role = "alert",
+        style = "margin-top: 15px; padding: 15px; font-size: 1.15em;",
+        tags$strong(icon(icon_name), " Part I Evaluation: ", res$partI),
+        tags$p(sub_text, style = "margin: 5px 0 0 24px; font-size: 0.95em;")
+    )
+  })
   
   ## Overall statement "x out of y length errors are greater than *threshold*"
   output$length_summary <- renderUI({
@@ -999,7 +1310,11 @@ server <- function(input, output, session) {
   ## renderPrint changed to renderDT
   output$actual_table_content <- renderPrint({
     # This sends the actual data to the placeholder created above
-    all_results()$lengtherrors_subtable
+    if(nrow(all_results()$lengtherrors_subtable) > 0) {
+      all_results()$lengtherrors_subtable
+    } else {
+      return(NULL)
+    }
   })
   
   ## The individual length tables
@@ -1149,6 +1464,42 @@ server <- function(input, output, session) {
   #############################
   ##** PART II ANALYSIS
   ##*
+  
+  # PART II COMPLIANCE BOX
+  output$partII_summary_box <- renderUI({
+    req(compliance_results())
+    res <- compliance_results()
+    
+    if (input$assessment_type == "Baseline Assessment") {
+      div(class = "alert alert-info", role = "alert",
+          style = "margin-top: 15px; padding: 15px; font-size: 1.15em;",
+          tags$strong(icon("info-circle"), " Part II Evaluation: Baseline Assessment"),
+          tags$p("Part II has no compliance evaluation during a Baseline Assessment.", style = "margin: 5px 0 0 24px; font-size: 0.95em;")
+      )
+    } else {
+      h_style <- if(res$htest == "COMPLIANT") "text-success" else "text-danger"
+      
+      eer_display_text <- if(res$partI == "NON-COMPLIANT" && res$htest == "NON-COMPLIANT") {
+        "N/A (Simulation not required)"
+      } else if (res$eer == "N/A") {
+        "N/A (Simulation not required)"
+      } else {
+        res$eer
+      }
+      
+      eer_style <- if(res$eer == "COMPLIANT") "text-success" else if(res$eer == "NON-COMPLIANT") "text-danger" else "text-muted"
+      
+      div(class = paste0("alert alert-", res$class), role = "alert",
+          style = "margin-top: 15px; padding: 15px; font-size: 1.15em;",
+          tags$strong(icon(if(res$class == "success") "check-circle" else if(res$class == "warning") "exclamation-triangle" else "times-circle"), " Part II Evaluation:"),
+          tags$ul(style = "margin: 5px 0 0 10px; font-size: 0.95em;",
+                  tags$li(tags$strong("Hypothesis Test Result: "), tags$span(class = h_style, res$htest)),
+                  tags$li(tags$strong("Expected Error Range (EER) Result: "), tags$span(class = eer_style, eer_display_text))
+          )
+      )
+    }
+  })
+  
   ## FIRST PRINT THE COVARIANCE MATRIX FROM THE TLS ('test') DATA
   
   ## The estimated variance/covariance matrices
@@ -1364,11 +1715,27 @@ server <- function(input, output, session) {
   
   ###############################
   ## Metadata Summaries
+  ##
+  # OVERALL ASSESSMENT BOX
+  output$overall_assessment_summary <- renderUI({
+    req(compliance_results())
+    res <- compliance_results()
+    
+    border_color <- if(res$class == "success") "#3c763d;" else if(res$class == "warning") "#8a6d3b;" else "#a94442;"
+    
+    wellPanel(
+      style = paste0("border-left: 6px solid ", border_color, " background-color: #fcfcfc; padding: 20px; margin-top: 10px;"),
+      h3(paste("Assessment Conclusion:", res$label), 
+         style = paste0("margin-top: 0; font-weight: bold; color: ", border_color)),
+      p(strong("Finding: "), res$description, style = "font-size: 1.1em;"),
+      p(strong("Recommendation: "), res$action, style = "font-size: 1.1em; color: #333;")
+    )
+  })
+  
   output$summary_currentdata <- renderUI({
     req(all_results()$filename_TLStest)
     # Use HTML to recognize line breaks
     HTML(paste0(
-      "<h3>Current data metadata:</h3>",
       "<h4>TLS data</h4>",
       "<div style='margin-left: 20px;'>", # Start indentation
       "<b>filename:</b> ", all_results()$filename_TLStest, "<br/>",
@@ -1389,7 +1756,6 @@ server <- function(input, output, session) {
     req(all_results()$filename_TLShist)
     # Use HTML to recognize line breaks
     HTML(paste0(
-      "<h3>Historic data metadata:</h3>",
       "<h4>TLS data</h4>",
       "<div style='margin-left: 20px;'>", # Start indentation
       "<b>filename:</b> ", all_results()$filename_TLShist, "<br/>",
@@ -1437,7 +1803,7 @@ server <- function(input, output, session) {
       tagList(
         conditionalPanel(
           condition = "output.show_rp_current_state == false",
-          actionLink("view_rp_current", "Residual plot (current data)")
+          actionLink("view_rp_current", "Residual plot")
         ),
         
         conditionalPanel(
@@ -1485,7 +1851,7 @@ server <- function(input, output, session) {
       tagList(
         conditionalPanel(
           condition = "output.show_rp_historic_state == false",
-          actionLink("view_rp_historic", "Residual plot (historic data)")
+          actionLink("view_rp_historic", "Residual plot (baseline data)")
         ),
         
         conditionalPanel(
@@ -1586,73 +1952,92 @@ server <- function(input, output, session) {
         }
         
         # Set up parameters to pass to Rmd document
-        # You can pull these from input$ or reactive variables
+        # Set up parameters to pass to Rmd document
         params <- list(
-          report_title = "TLS WebApp Results",
+          report_title  = "TLS Interim Performance Assessment Results",
           
-          ## CURRENT DATA META STUFF
-          historic_comp = all_results()$partII_htest,               ## "Yes" or "No", indicating whether historic comp was performed
-          ##  TLS data
-          filename_TLStest = all_results()$filename_TLStest,   ## fn for TLS data under test
-          dataname_test = all_results()$dataname_test, ## the user-specified name of the TLS data under test
-          nT_test = all_results()$nT_test,                         ## number of Targets in Current TLS data
-          nP_test = all_results()$nP_test,                         ## number of Positions in Current TLS data
-          TLS_UnitStatement = all_results()$TLS_UnitStatement,     ## unit statement for current TLS data
-          ##  Reference lengths
-          filename_reflengths = all_results()$filename_reflengths, ## fn for reference lengths
-          tapedata_summary = all_results()$tapedata_summary,       ## unit statement for current reference lengths
-          ##
-          ## HISTORIC DATA META STUFF
-          ##   TLS data
-          filename_TLShist = all_results()$filename_TLShist,       ## fn for historic TLS data
-          dataname_base = all_results()$dataname_base,             ## user-specified nickname for historic TLS data
-          nT_base = all_results()$nT_base,                         ## number of Targets in Historic TLS data
-          nP_base = all_results()$nP_base,                         ## number of positions in Historic TLS data
-          historicTLS_UnitStatement = all_results()$historicTLS_UnitStatement, ## unit statement for historic TLS data
-          ##  Reference lengths
-          filename_reflengths_hist = all_results()$filename_reflengths_hist, ## fn for Historic reference lengths
-          reflengths_hist_summary = all_results()$reflengths_hist_summary,   ## unit statement for Historic reference lengths
+          # ================================================================
+          # ASSESSMENT TYPE & COMPLIANCE VERDICTS
+          # ================================================================
+          assessment_type   = input$assessment_type,
+          overall_label     = compliance_results()$label,
+          overall_desc      = compliance_results()$description,
+          overall_action    = compliance_results()$action,
+          partI_status      = compliance_results()$partI,
+          partII_htest      = compliance_results()$htest,
+          partII_eer        = compliance_results()$eer,
           
+          # ================================================================
+          # DATA UNDER TEST META STUFF
+          # (Baseline Data if Baseline Track; Verification Data if Verification Track)
+          # ================================================================
+          has_baseline_comp   = all_results()$partII_htest,                     ## "Yes" or "No", indicating whether historic comp was performed
+          filename_TLS_test   = all_results()$filename_TLStest,   
+          dataname_test       = all_results()$dataname_test, 
+          nT_test             = all_results()$nT_test,                         
+          nP_test             = all_results()$nP_test,                         
+          TLS_UnitStatement   = all_results()$TLS_UnitStatement,     
+          filename_reflengths = all_results()$filename_reflengths, 
+          tapedata_summary    = all_results()$tapedata_summary,       
           
-          ## PART I RESULTS
-          ##   ACCURACY - CURRENT DATA
-          length_summary = all_results()$lengtherrors_summary,
-          error_plot = error_plot_reactive(),                      # The new plot reactive
-          error_table = all_results()$A_F_LengthError_table,       ## The full table of errors
-          error_table_sub = all_results()$lengtherrors_subtable,   ## The subset table (which may be NA)
-          lengtherror_statements = all_results()$A_F_LengthError_statements, ## Details about the 6 Reference Lengths 
-          ##   ACCURACY - HISTORIC DATA
-          length_summary_hist = all_results()$lengtherrors_statement_hist_clean, ## Historic accuracy statement
-          error_table_hist = all_results()$A_F_LengthError_table_hist,     ## Complete table of Historic length errors
-          error_table_sub_hist = all_results()$lengtherrors_subtable_hist, ## Historic accuracy subtable
-          errorPlot_hist = error_plot_reactive_hist(),              ## Historic Accuracy plot
-          lengtherror_statements_hist = all_results()$A_F_lengthError_statements_hist, ## Details about the 6 Historic reference lengths
+          # ================================================================
+          # RENAMED REQUIREMENT 3: BASELINE COMPARISON DATA META STUFF
+          # (Only populated and utilized during a Verification Track)
+          # ================================================================
+          filename_TLS_baseline       = all_results()$filename_TLShist,       
+          dataname_baseline           = all_results()$dataname_base,             
+          nT_baseline                 = all_results()$nT_base,                         
+          nP_baseline                 = all_results()$nP_base,                         
+          baseline_TLS_UnitStatement  = all_results()$historicTLS_UnitStatement, 
+          filename_reflengths_baseline = all_results()$filename_reflengths_hist, 
+          reflengths_baseline_summary = all_results()$reflengths_hist_summary,   
           
-          ## PART II RESULTS
-          ##   PRECISION - CURRENT DATA
-          sd_test = all_results()$testdata_SDstatements,           ## sd in the residuals
-          sigmaHat_test = all_results()$SigmaHat2,                 ## Estimated covariance matrix from Current data
-          sigmaHat_hist = all_results()$SigmaHat1,                 ## Estimated covariance matrix from Historic data
-          ##   PRECISION - HISTORIC DATA
-          basedata_sd = all_results()$basedata_sd,                 ## Historic std deviations in residuals
-          ##   PRECISION COMPARISON
-          p2_interpretation = all_results()$p2_interpretation,     ## interpretation of the hypothesis test
-          Htest_details = all_results()$test_results,              ## details from the hypothesis test
-          ellipse_plot_path = ellipse_plot_path,                   ## pass the path to the saved ellipse plot
-          ##   EFFECT OF CURRENT PRECISION ON LENGTH ERRORS (MCS RESULTS)
-          expectederrors_summary = all_results()$expectederrors_summary, ## statement about how many EER values exceed threshold
+          # ================================================================
+          # PART I RESULTS (ACCURACY)
+          # ================================================================
+          # Data Under Test Accuracy
+          length_summary         = all_results()$lengtherrors_summary,
+          error_plot             = error_plot_reactive(),                  
+          error_table            = all_results()$A_F_LengthError_table,       
+          error_table_sub        = all_results()$lengtherrors_subtable,   
+          lengtherror_statements  = all_results()$A_F_LengthError_statements, 
+          mpe_value               = all_results()$threshold,
+          unc_ref                 = all_results()$unc_ref,
+          
+          # Baseline Comparison Target Accuracy (Verification track only)
+          length_summary_baseline     = all_results()$lengtherrors_statement_hist_clean, 
+          error_table_baseline        = all_results()$A_F_LengthError_table_hist,     
+          error_table_sub_baseline    = all_results()$lengtherrors_subtable_hist, 
+          error_plot_baseline         = error_plot_reactive_hist(),              
+          lengtherror_statements_baseline = all_results()$A_F_lengthError_statements_hist, 
+          
+          # ================================================================
+          # PART II RESULTS (PRECISION)
+          # ================================================================
+          sd_test           = all_results()$testdata_SDstatements,           
+          sigmaHat_test     = all_results()$SigmaHat2,                 
+          sigmaHat_baseline = all_results()$SigmaHat1,                 
+          baseline_data_sd  = all_results()$basedata_sd,                 
+          
+          # Precision Comparison & Simulations
+          p2_interpretation = all_results()$p2_interpretation,                  ## interpretation of the hypothesis test
+          Htest_details     = all_results()$test_results,                       ## details from the hypothesis test
+          ellipse_plot_path = ellipse_plot_path,                                ## pass the path to the saved ellipse plot
+          expectederrors_summary = all_results()$expectederrors_summary,        ## statement about how many EER values exceed threshold
           expectederror_plot = expectederror_plot_reactive(),
-          seed_value = all_results()$seed_value,
-          nIt_mcs = all_results()$nIt_mcs,
-          expected_errors = all_results()$expected_errors,
+          seed_value        = all_results()$seed_value,
+          nIt_mcs           = all_results()$nIt_mcs,
+          expected_errors   = all_results()$expected_errors,
+          alpha             = all_results()$alpha,
           
-
-          
-          ## DATA SUMMARIES/NOTES
-          notes = input$report_notes,                     ## User-given notes
-          resPlot_current = res_plot_reactive_test(),     ## Residual plot (Current data)
-          resPlot_hist = res_plot_reactive_base()         ## Residual plot (Historic data)
+          # ================================================================
+          # VISUAL RESIDUALS & SUPPLEMENTAL NOTES
+          # ================================================================
+          notes             = input$report_notes,                               ## User-given notes
+          resPlot_current   = res_plot_reactive_test(),                         ## Residual plot for Data Under Test (Baseline or Verification, depending on track)
+          resPlot_baseline  = res_plot_reactive_base()                          ## Residual plot for Baseline data (only if performing Verification Assessment)
         )
+       
         
         # 3. Increment again before the "heavy lifting"
         incProgress(0.3, detail = "Rendering PDF (This may take a few moments)...")
@@ -1672,24 +2057,96 @@ server <- function(input, output, session) {
   ###############################
   ##**Information
   ##*
-  output$info <- renderUI({
+  #output$info <- renderUI({
     # We wrap the entire text string in a div with 60% width
-    div(style = "width: 60%; line-height: 1.6;",
-      HTML(paste("This web app implements the required calculations 
-      to perform the OSAC CSIR `Terrestrial Laser Scanner Performance Assessment Test Procedure'. 
-      This test procedure consists of two parts:<br><br>", 
-      "Part I: Test of the instrument's target-to-target accuracy;<br>", 
-      "Part II: Statement of the instrument's spherical precision.<br>", 
-      "<br>",
-      "If a historic comparison is made, a <a href='https://doi.org/10.1111/1556-4029.70256' target='_blank'>statistical procedure</a> 
-      is applied to test if the instrument's spherical precision has significantly changed. If there is a statistically significant
-      difference in the spherical precision, the effect of the current instrument precision on the length measurements is estimated using a Monte Carlo simulation.<br><br>",
+   # div(style = "width: 60%; line-height: 1.6;",
+    #  HTML(paste("This web app implements the required calculations 
+    #  to perform the OSAC CSIR `Terrestrial Laser Scanner Performance Assessment Test Procedure'. 
+    #  This test procedure consists of two parts:<br><br>", 
+    #  "Part I: Test of the instrument's target-to-target accuracy;<br>", 
+    #  "Part II: Statement of the instrument's spherical precision.<br>", 
+    #  "<br>",
+    #  "If a historic comparison is made, a <a href='https://doi.org/10.1111/1556-4029.70256' target='_blank'>statistical procedure</a> 
+    #  is applied to test if the instrument's spherical precision has significantly changed. If there is a statistically significant
+    #  difference in the spherical precision, the effect of the current instrument precision on the length measurements is estimated using a Monte Carlo simulation.<br><br>",
     
-      "The user manual for this webapp can be downloaded [here]. Additional information can be found in the OSAC standard, 
-      [this paper], and [this other paper]."
-      ))
-    )
-  })
+  #    "The user manual for this webapp can be downloaded [here]. Additional information can be found in the OSAC standard, 
+  #    [this paper], and [this other paper]."
+  #    ))
+  #  )
+  #})
+    
+    output$info <- renderUI({
+      # Main layout container opens
+      div(style = "max-width: 750px; line-height: 1.6; color: #333333; padding-right: 15px;",
+          
+          # Main Header
+          h2("Terrestrial Laser Scanner Interim Performance Assessment WebApp", 
+             style = "margin-top: 0; color: #2c3e50; font-weight: bold;"),
+          
+          p("This web application is the official tool for executing the calculations and compliance analyses required by the ",
+            em("Standard for Terrestrial LiDAR Scanner (TLS) Calibration and Performance Assessment."),
+            " This standard is currently under development by the OSAC CSIR Subcommittee."
+          ),
+          
+          p("This application is designed strictly for data analysis. It does not provide instruction on the execution of the IPA procedure, nor does it perform any cleaning or formatting of data files."),
+          
+          # Gateway Qualifier Section
+          h3("Am I in the right place?", style = "color: #2c3e50; margin-top: 25px; font-weight: 600;"),
+          
+          p(strong("You are ready to use this application if:")),
+          tags$ul(
+            tags$li(strong("You have completed the IPA testing procedure:"), " Your data were collected in accordance with the multi-position setup detailed in the draft standard."),
+            tags$li(strong("Your data are pre-processed and correctly formatted:"), " You have already extracted and matched target coordinates from your individual scans into the required single-file format. Your reference lengths have been recorded appropriately, and all files conform to the layout specifications required by this application."),
+            tags$li(strong("You understand what analyses are performed by this application:"), " You have determined whether your data represent a Baseline Assessment or a Verification Assessment, and you understand the evaluation criteria that will be applied to your datasets.")
+          ),
+          
+          p(strong("You are not ready to use this application if:")),
+          tags$ul(
+            tags$li("You have not yet performed the IPA testing procedure."),
+            tags$li("You are unsure what reference lengths or target files are required."),
+            tags$li("Your data files are still in a raw scanner format.")
+          ),
+          
+          p(em("If you need additional information, please consult the draft standard document and the User Manual for this web application before attempting to upload your files.")),
+          
+          # Structural Scope Section
+          h3("What This Application Evaluates", style = "color: #2c3e50; margin-top: 25px; font-weight: 600;"),
+          
+          p("Once your data are uploaded, this application automatically assesses your instrument’s compliance across the following two parts:"),
+          tags$ul(
+            tags$li(strong("Part I – Target-to-Target Accuracy:"), " Evaluating how closely the scanner's measurements match calibrated reference lengths."),
+            tags$li(strong("Part II – Instrument Precision:"), " Analyzing the consistency of the scanner's internal measurements across multiple positions to detect significant shifts in performance.")
+          ),
+          
+          # Section 2: Direct Signposts to Resources
+          h3("Documentation & Resources", style = "color: #2c3e50; margin-top: 25px; font-weight: 600;"),
+          p("Access the core project platform or download the user manual documentation directly below:"),
+          
+          # Flex container to display buttons neatly side-by-side
+          div(style = "margin-top: 15px; display: flex; gap: 20px;",
+              
+              # Button A: External Portal (Muted Slate Outline)
+              tags$a(href = "https://pages.nist.gov/tls-web-portal/", 
+                     target = "_blank", 
+                     class = "btn", 
+                     style = "background-color: #f2f2f2; border: 1px solid #dcdcdc; color: #2c3e50; font-weight: 500; padding: 8px 16px;",
+                     icon("external-link-alt"), " Open TLS Resource Portal"
+              ),
+              
+              # Button B: Locally Hosted User Manual (Muted Slate Outline)
+              tags$a(href = "manual.pdf", 
+                     target = "_blank", 
+                     class = "btn", 
+                     style = "background-color: #f2f2f2; border: 1px solid #dcdcdc; color: #2c3e50; font-weight: 500; padding: 8px 16px;",
+                     icon("file-pdf"), " Download User Manual"
+              )
+          ),
+          
+          br(),
+          #p(tags$small(style = "color: #888888;", "Application Version: 1.1.0 | Core Engine Updated: 06/30/2026"))
+      ) # <--- This parenthesis now correctly closes the main outer layout div
+    })
   
 }
 

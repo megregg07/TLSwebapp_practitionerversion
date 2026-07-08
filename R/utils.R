@@ -224,20 +224,21 @@ obtain_expected_errors <- function(Zc, ref_lengths, SigmaHat, nIt = 5000, EE_sca
 ##
 ## FUNCITON THAT TAKES AS INPUT 'R' MATRIX, AND RETURNS A 'PRETTY' VERSION OF R 
 ## (with target names etc., for the purpose of making plots to check for problem targets)
-##
+## ...This needs to inheret the Target names...not make them again
 
-create_pretty_R <- function(M, data_name) {
+create_pretty_R <- function(M, data_name, target_names) {
   ## determine how many targets and positions there are
   nT <- nrow(M)
   nP <- ncol(M)/3
   
   M_pretty <- data.frame(
     data = data_name, 
-    target = paste0("Target_", str_pad(1:nT, width = 2, side = "left", "0")), 
+    #target = paste0("Target_", str_pad(1:nT, width = 2, side = "left", "0")), 
+    target = target_names,
     theta = as.numeric(as.matrix(M[,c(seq(1,ncol(M), by = 3))])), ## columns 1,4,7,10 when there are four positions
     phi = as.numeric(as.matrix(M[,c(seq(2,ncol(M), by = 3))])),   ## columns 2,5,8,11 when there are four positions
     r = as.numeric(as.matrix(M[,c(seq(3,ncol(M), by = 3))])),     ## columns 3,6,9,12 when there are four positions
-    position = rep(paste0("Position",1:nP), each = 20)
+    position = rep(paste0("Position",1:nP), each = nT)
   )
   ## convert angular residuals from radians to arcseconds
   M_pretty <- M_pretty %>%
@@ -304,8 +305,8 @@ my_ellipse_plot <- function(Xdat, r = 2, col_list = c("#1F77B4", "#FF7F0E")) {
   if(ncol(Xdat)==(2+1)) {
     p1 <- ggplot(Xdat, aes(x = phi, y = theta, color = dataset)) + geom_point(pch = 20, size = 2) +
       #labs(x =  "\u03c6 residual (arc)", y = "\u03b8 residual (arc)") +
-      labs(x = expression(paste(phi, " residual (arcsec)")), 
-           y = expression(paste(theta, " residual (arcsec)"))) +
+      labs(x = "φ residual (arcsec)", 
+           y = "θ residual (arcsec)") +
       scale_color_manual(values = col_list)+
       guides(color=guide_legend(title="Data")) +
       theme(legend.position = "top") +
@@ -318,8 +319,8 @@ my_ellipse_plot <- function(Xdat, r = 2, col_list = c("#1F77B4", "#FF7F0E")) {
     ## same first plot, but suppress the legend
     p1 <- ggplot(Xdat, aes(x = phi, y = theta, color = dataset)) + geom_point(pch = 20, size = 2) +
       #labs(x = "\u03c6 residual (arcsec)", y = "\u03b8 residual (arcsec)") +
-      labs(x = expression(paste(phi, " residual (arcsec)")), 
-           y = expression(paste(theta, " residual (arcsec)"))) +
+      labs(x = "φ residual (arcsec)", 
+           y = "θ residual (arcsec)") +
       scale_color_manual(values = col_list)+
       guides(color = "none") +
       geom_path(data = ellipse1_1, color = col_list[1]) +
@@ -334,7 +335,7 @@ my_ellipse_plot <- function(Xdat, r = 2, col_list = c("#1F77B4", "#FF7F0E")) {
     p2 <- ggplot(Xdat, aes(x = r, y = theta, color = dataset)) + geom_point(pch = 20, size = 2) +
       #labs(x = "r residual (mm)", y = "\u03b8 residual (arcsec)") +
       labs(x = "r residual (mm)", 
-           y = expression(paste(theta, " residual (arcsec)"))) +
+           y =  "θ residual (arcsec)") +
       scale_color_manual(values = col_list) +
       guides(color = "none") +
       geom_path(data = ellipse2_1, color = col_list[1]) +
@@ -348,7 +349,7 @@ my_ellipse_plot <- function(Xdat, r = 2, col_list = c("#1F77B4", "#FF7F0E")) {
     p3 <- ggplot(Xdat, aes(x = r, y = phi, color = dataset)) + geom_point(pch = 20, size = 2) +
       #labs(x = "r residual (mm)", y = "\u03c6 residual (arcsec)") +
       labs(x = "r residual (mm)", 
-           y = expression(paste(phi, " residual (arcsec)"))) +
+           y = "φ residual (arcsec)") +
       scale_color_manual(values = col_list) +
       guides(color=guide_legend(title="Data", ncol = 1)) +
       geom_path(data = ellipse3_1, color = col_list[1]) +
